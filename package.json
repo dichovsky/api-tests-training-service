@@ -1,0 +1,32 @@
+{
+  "name": "api-testing-http-service",
+  "version": "1.0.0",
+  "description": "A Node.js HTTP API service for training and testing API endpoints",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dichovsky/api-tests-training-service.git"
+  },
+  "license": "MIT",
+  "author": "Igor Magdich",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "npm run clean && npm run tsc",
+    "clean": "rimraf ./dist ./coverage ./test-results",
+    "dev": "ts-node src/index.ts",
+    "exec": "node dist/index.js",
+    "start": "npm run build && npm run exec",
+    "tsc": "tsc",
+    "docker:build": "docker build --compress -t api-testing-http-service .",
+    "docker:run": "docker run --rm -it -p 3000:3000 api-testing-http-service"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.23",
+    "@types/node": "^22.16.0",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
