@@ -43,7 +43,7 @@ app.get("/", (req: Request, res: Response) => {
               openapi: "3.0.0",
               info: {
                 title: "Entities API",
-                version: "1.0.0",
+                version: "1.1.0",
                 description: "A simple API for managing entities."
               },
               servers: [
@@ -167,13 +167,15 @@ app.get("/", (req: Request, res: Response) => {
                     type: "object",
                     properties: {
                       id: { type: "integer", example: 1 },
-                      name: { type: "string", example: "Sample Entity" }
+                      name: { type: "string", example: "Sample Entity" },
+                      size: { type: "number", example: 10, description: "Optional positive number" }
                     }
                   },
                   EntityInput: {
                     type: "object",
                     properties: {
-                      name: { type: "string", example: "Sample Entity" }
+                      name: { type: "string", example: "Sample Entity" },
+                      size: { type: "number", example: 10, description: "Optional positive number" }
                     },
                     required: ["name"]
                   }
@@ -323,6 +325,7 @@ app.get("/requirements", (req: Request, res: Response) => {
             <div class="properties">
               <ul>
                 <li>name</li>
+                <li>size</li>
               </ul>
             </div>
           </div>
@@ -402,13 +405,33 @@ app.put("/entities/:id", (req: Request, res: Response) => {
   );
   const idx = entities.findIndex((e) => e.id === Number(req.params.id));
   if (idx === -1) return res.status(404).send("Entity not found");
+  
   const { name } = req.body;
   if (typeof name !== "string" || !name.trim()) {
     return res
       .status(400)
       .json({ error: "Invalid or missing 'name' property" });
   }
-  entities[idx] = { id: entities[idx].id, name: name.trim() };
+  
+  if (req.body.size !== undefined) {
+    if (typeof req.body.size !== "number") {
+      return res.status(400).json({ error: "Invalid 'size' property data type" });
+    }
+    if (req.body.size < 0) {
+      return res.status(400).json({ error: "'size' must be a non-negative number" });
+    }
+  }
+  
+  const updatedEntity: Entity = { 
+    id: entities[idx].id, 
+    name: name.trim() 
+  };
+  
+  if (req.body.size !== undefined) {
+    updatedEntity.size = req.body.size;
+  }
+  
+  entities[idx] = updatedEntity;
   res.json(entities[idx]);
 });
 
