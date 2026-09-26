@@ -28,39 +28,74 @@ export interface TrainingConfig {
   };
 }
 
-export const defaultTrainingConfig: TrainingConfig = {
-  enabled: false,
-  features: {
-    skipTrimOnCreate: true,
-    skipTrimOnUpdate: true,
-    flakyEndpoint: true,
-    rateLimiting: true,
-    slowEndpoint: true,
-    paginationEdgeCases: true,
-    bulkPartialFailures: true,
-    graphqlComplexityLimit: true,
-  },
-};
+export class TrainingConfigManager {
+  private static instance: TrainingConfigManager;
+  private config: TrainingConfig;
+
+  private constructor() {
+    this.config = this.loadFromEnv();
+  }
+
+  static getInstance(): TrainingConfigManager {
+    if (!TrainingConfigManager.instance) {
+      TrainingConfigManager.instance = new TrainingConfigManager();
+    }
+    return TrainingConfigManager.instance;
+  }
+
+  getConfig(): TrainingConfig {
+    return { ...this.config, features: { ...this.config.features } };
+  }
+
+  updateConfig(newConfig: Partial<TrainingConfig>): TrainingConfig {
+    this.config = {
+      ...this.config,
+      ...newConfig,
+      features: { ...this.config.features, ...(newConfig.features || {}) }
+    };
+    return this.getConfig();
+  }
+
+  private loadFromEnv(): TrainingConfig {
+    return {
+      enabled: process.env.TRAINING_MODE === 'true',
+      features: {
+        skipTrimOnCreate: process.env.TRAINING_SKIP_TRIM_CREATE !== 'false',
+        skipTrimOnUpdate: process.env.TRAINING_SKIP_TRIM_UPDATE !== 'false',
+        flakyEndpoint: process.env.TRAINING_FLAKY !== 'false',
+        rateLimiting: process.env.TRAINING_RATE_LIMIT !== 'false',
+        slowEndpoint: process.env.TRAINING_SLOW !== 'false',
+        paginationEdgeCases: process.env.TRAINING_PAGINATION !== 'false',
+        bulkPartialFailures: process.env.TRAINING_BULK_FAIL !== 'false',
+        graphqlComplexityLimit: process.env.TRAINING_GRAPHQL_LIMIT !== 'false',
+      },
+    };
+  }
+}
 
 export class EntityService {
   private entities: Entity[] = [];
   private nextId = 1;
-  private trainingConfig: TrainingConfig;
+  private configManager: TrainingConfigManager;
 
-  constructor(trainingConfig: TrainingConfig = defaultTrainingConfig) {
-    this.trainingConfig = trainingConfig;
+  constructor() {
+    this.configManager = TrainingConfigManager.getInstance();
+  }
+
+  private get config(): TrainingConfig {
+    return this.configManager.getConfig();
   }
 
   private get trainingMode(): boolean {
-    return this.trainingConfig.enabled;
+    return this.config.enabled;
   }
 
   private shouldSkipTrimCreate(): boolean {
-    return this.trainingMode && this.trainingConfig.features.skipTrimOnCreate;
+    return this.trainingMode && this.config.features.skipTrimOnCreate;
   }
 
   private shouldSkipTrimUpdate(): boolean {
-    return this.trainingMode && this.trainingConfig.features.skipTrimOnUpdate;
+    return this.trainingMode && this.config.features.skipTrimOnUpdate;
   }
 
   private sanitizeName(name: string): string {

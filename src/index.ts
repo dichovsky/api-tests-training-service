@@ -3,27 +3,14 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { EntityService, EntityInput, defaultTrainingConfig } from './entity.service';
+import { EntityService, EntityInput, TrainingConfigManager, TrainingConfig } from './entity.service';
 import { escapeHtml } from './utils/html-sanitizer';
 
 const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(express.json());
 
-const trainingConfig = {
-  enabled: process.env.TRAINING_MODE === 'true',
-  features: {
-    skipTrimOnCreate: process.env.TRAINING_SKIP_TRIM_CREATE !== 'false',
-    skipTrimOnUpdate: process.env.TRAINING_SKIP_TRIM_UPDATE !== 'false',
-    flakyEndpoint: process.env.TRAINING_FLAKY !== 'false',
-    rateLimiting: process.env.TRAINING_RATE_LIMIT !== 'false',
-    slowEndpoint: process.env.TRAINING_SLOW !== 'false',
-    paginationEdgeCases: process.env.TRAINING_PAGINATION !== 'false',
-    bulkPartialFailures: process.env.TRAINING_BULK_FAIL !== 'false',
-    graphqlComplexityLimit: process.env.TRAINING_GRAPHQL_LIMIT !== 'false',
-  },
-};
-const entityService = new EntityService(trainingConfig);
+const entityService = new EntityService();
 
 // Cache spec files at startup to avoid blocking I/O
 const specFiles = {
@@ -596,6 +583,16 @@ app.delete("/entities/:id", (req: Request, res: Response) => {
   res.json(result.entity);
 });
 
+// Training config REST endpoints
+app.get("/training-config", (req: Request, res: Response) => {
+  res.json(TrainingConfigManager.getInstance().getConfig());
+});
+
+app.patch("/training-config", (req: Request, res: Response) => {
+  const config = TrainingConfigManager.getInstance().updateConfig(req.body);
+  res.json(config);
+});
+
 // GraphQL setup
 const typeDefs = readFileSync(join(__dirname, '..', 'api-graphql.graphql'), 'utf-8');
 
@@ -618,9 +615,13 @@ const resolvers = {
       if (isNaN(idNum)) return null;
       return entityService.getById(idNum);
     },
-    trainingMode: () => entityService.getTrainingMode(),
+    trainingMode: () => TrainingConfigManager.getInstance().getConfig().enabled,
+    trainingConfig: () => TrainingConfigManager.getInstance().getConfig(),
   },
   Mutation: {
+    updateTrainingConfig: (_: any, { config }: { config: Partial<TrainingConfig> }) => {
+      return TrainingConfigManager.getInstance().updateConfig(config);
+    },
     createEntity: (_: any, { input }: { input: EntityInput }) => {
       const result = entityService.create(input);
       if (result.errors) {
@@ -670,7 +671,7 @@ async function startServer() {
     console.log(`Server running on port ${PORT}`);
     console.log(`REST API: http://localhost:${PORT}/entities`);
     console.log(`GraphQL Playground: http://localhost:${PORT}/graphql`);
-    console.log(`Training mode: ${trainingMode ? 'ENABLED' : 'DISABLED'}`);
+    console.log(`Training mode: ${TrainingConfigManager.getInstance().getConfig().enabled ? 'ENABLED' : 'DISABLED'}`);
   });
 }
 
