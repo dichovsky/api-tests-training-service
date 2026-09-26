@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Entities API
-  version: 1.1.0
-  description: A simple API for managing entities.
+  version: 1.2.0
+  description: A simple API for managing entities with REST and GraphQL support.
 servers:
   - url: http://magdich.cloud:3000
 paths:
@@ -91,6 +91,29 @@ paths:
           description: Entity deleted
         '404':
           description: Entity not found
+  /graphql:
+    post:
+      summary: GraphQL endpoint
+      description: GraphQL endpoint for querying and mutating entities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  example: '{ entities { id name size } }'
+                variables:
+                  type: object
+      responses:
+        '200':
+          description: GraphQL response
+          content:
+            application/json:
+              schema:
+                type: object
 components:
   schemas:
     Entity:
@@ -102,11 +125,19 @@ components:
         name:
           type: string
           example: Sample Entity name
+        size:
+          type: number
+          example: 10
+          description: Optional positive number
     EntityInput:
       type: object
       properties:
         name:
           type: string
           example: Sample Entity name
+        size:
+          type: number
+          example: 10
+          description: Optional positive number
       required:
         - name
