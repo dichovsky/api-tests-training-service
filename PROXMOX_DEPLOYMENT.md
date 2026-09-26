@@ -7,7 +7,7 @@
 Deploy to Proxmox VE using Community Scripts:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/api-tests-training-service.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-training-service/main/ct-api-tests-training-service.sh)"
 ```
 
 ### Configuration Variables
@@ -23,7 +23,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/Proxmo
 var_git_repo='https://github.com/dichovsky/api-tests-training-service.git' \
 var_port='8080' \
 var_training_mode='true' \
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/api-tests-training-service.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-training-service/main/ct-api-tests-training-service.sh)"
 ```
 
 ### Update Service
@@ -31,7 +31,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/Proxmo
 Inside the container, run:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/api-tests-training-service.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-training-service/main/ct-api-tests-training-service.sh)"
 ```
 
 The update script will:

@@ -105,7 +105,7 @@ mutation {
 Deploy this service to Proxmox VE using Community Scripts:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/api-tests-training-service.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-training-service/main/ct-api-tests-training-service.sh)"
 ```
 
 **Features:**
@@ -118,7 +118,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/Proxmo
 **Update the service:**
 ```bash
 # Inside the container
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/api-tests-training-service.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-training-service/main/ct-api-tests-training-service.sh)"
 ```
 
 The service will automatically pull latest code, rebuild TypeScript, and restart.

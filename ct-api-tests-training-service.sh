@@ -23,6 +23,7 @@ var_git_repo="${var_git_repo:-https://github.com/dichovsky/api-tests-training-se
 var_install_path="${var_install_path:-/opt/api-tests-training-service}"
 var_port="${var_port:-3000}"
 var_training_mode="${var_training_mode:-false}"
+var_install_script_url="${var_install_script_url:-https://raw.githubusercontent.com/dichovsky/api-tests-training-service/main/install-api-tests-training-service.sh}"
 
 header_info "$APP"
 variables
@@ -55,8 +56,9 @@ function update_script() {
 
     # Install dependencies and rebuild
     cd "$var_install_path"
-    $STD npm ci --production
+    $STD npm ci
     $STD npm run build
+    $STD npm prune --omit=dev
 
     # Restart service
     if systemctl is-active --quiet api-tests-training-service; then
@@ -71,66 +73,19 @@ function update_script() {
     exit
 }
 
-function install_app() {
-    msg_info "Installing $APP"
+start
+build_container
+description
 
-    # Create install directory
-    mkdir -p "$var_install_path"
-    
-    # Clone repository
-    if [[ ! -d "$var_install_path/.git" ]]; then
-        $STD git clone "$var_git_repo" "$var_install_path"
-    fi
-
-    cd "$var_install_path"
-    
-    # Install dependencies
-    $STD npm ci --production
-    
-    # Build TypeScript
-    $STD npm run build
-
-    # Create systemd service
-    cat > /etc/systemd/system/api-tests-training-service.service <<EOF
-[Unit]
-Description=API Tests Training Service
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=$var_install_path
-ExecStart=/usr/bin/node $var_install_path/dist/index.js
-Restart=always
-RestartSec=10
-Environment=NODE_ENV=production
-Environment=PORT=$var_port
-Environment=TRAINING_MODE=$var_training_mode
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-    systemctl enable api-tests-training-service
-    systemctl start api-tests-training-service
-
-    msg_ok "Installed $APP"
-}
+# Install inside the new container, never on the Proxmox host
+msg_info "Installing $APP in CT $CTID"
+curl -fsSL "$var_install_script_url" | pct exec "$CTID" -- env \
+    INSTALL_PATH="$var_install_path" GIT_REPO="$var_git_repo" \
+    PORT="$var_port" TRAINING_MODE="$var_training_mode" bash -s
+msg_ok "Installed $APP"
 
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
 echo -e "${INFO}${YW} Access it via: http://${IP}:${var_port}/api-specs${CL}"
 echo -e "${INFO}${YW} GraphQL endpoint: http://${IP}:${var_port}/graphql${CL}"
-echo -e "${INFO}${YW} Update with: bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/api-tests-training-service.sh)\"${CL}"
-
-start
-build_container
-description
-
-# Post-install hook
-if [[ "${var_install_path}" ]]; then
-    install_app
-fi
-
-msg_ok "Completed successfully!"
+echo -e "${INFO}${YW} Update with: bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-training-service/main/ct-api-tests-training-service.sh)\"${CL}"

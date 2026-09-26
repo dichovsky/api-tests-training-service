@@ -7,8 +7,8 @@
   "url": "https://github.com/dichovsky/api-tests-training-service",
   "author": "Igor Magdich",
   "version": "1.0.0",
-  "script": "ct/api-tests-training-service.sh",
-  "install_script": "install/api-tests-training-service-install.sh",
+  "script": "ct-api-tests-training-service.sh",
+  "install_script": "install-api-tests-training-service.sh",
   "ports": [
     3000
   ],
