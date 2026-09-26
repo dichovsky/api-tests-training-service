@@ -1,7 +1,7 @@
 {
   "name": "api-tests-training-service",
   "title": "API Tests Training Service",
-  "description": "Real-time vision pipeline testing service with REST and GraphQL endpoints for TypeScript/GraphQL training",
+  "description": "Entities CRUD service with REST and GraphQL endpoints for API testing training",
   "category": "training",
   "tags": "training;api-tests;graphql",
   "url": "https://github.com/dichovsky/api-tests-training-service",
