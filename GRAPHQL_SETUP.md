@@ -6,8 +6,9 @@ Added GraphQL endpoint for training purposes alongside existing REST API.
 ## Changes Made
 
 ### 1. Dependencies Added
-- `@apollo/server@4.12.0` - Apollo Server for GraphQL
-- `graphql@16.8.1` - GraphQL core library
+- `@apollo/server@^5.5.1` - Apollo Server for GraphQL
+- `@as-integrations/express4@^1.1.2` - Express 4 integration for Apollo Server 5
+- `graphql@^16.11.0` - GraphQL core library
 
 ### 2. New Files
 - `src/entity.service.ts` - Shared service layer with validation and sanitization
@@ -59,12 +60,11 @@ TRAINING_MODE=true npm start
 
 In training mode, service randomly introduces bugs:
 - Skips name trimming (30% chance on create, 25% on update)
-- Allows negative size to pass validation (20% chance)
 - Helps trainees identify edge cases and validation issues
 
 ## Testing
 
-### REST Endpoints (unchanged)
+### REST Endpoints
 - `GET /entities` - List all
 - `GET /entities/:id` - Get one
 - `POST /entities` - Create
