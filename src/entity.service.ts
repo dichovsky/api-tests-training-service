@@ -14,18 +14,58 @@ export interface ValidationError {
   message: string;
 }
 
+const TRAINING_FEATURES = ['skipTrimOnCreate', 'skipTrimOnUpdate'] as const;
+type TrainingFeature = typeof TRAINING_FEATURES[number];
+
 export interface TrainingConfig {
   enabled: boolean;
-  features: {
-    skipTrimOnCreate: boolean;
-    skipTrimOnUpdate: boolean;
-    flakyEndpoint: boolean;
-    rateLimiting: boolean;
-    slowEndpoint: boolean;
-    paginationEdgeCases: boolean;
-    bulkPartialFailures: boolean;
-    graphqlComplexityLimit: boolean;
-  };
+  features: Record<TrainingFeature, boolean>;
+}
+
+interface TrainingConfigUpdate {
+  enabled?: boolean;
+  features?: Partial<Record<TrainingFeature, boolean>>;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isTrainingFeature(key: string): key is TrainingFeature {
+  return (TRAINING_FEATURES as readonly string[]).includes(key);
+}
+
+function validateConfigUpdate(input: unknown): ValidationError[] {
+  if (!isPlainObject(input)) {
+    return [{ field: 'config', message: 'Config update must be an object' }];
+  }
+
+  const errors: ValidationError[] = [];
+  for (const key of Object.keys(input)) {
+    if (key !== 'enabled' && key !== 'features') {
+      errors.push({ field: key, message: `Unknown property '${key}'` });
+    }
+  }
+
+  if ('enabled' in input && typeof input.enabled !== 'boolean') {
+    errors.push({ field: 'enabled', message: "'enabled' must be a boolean" });
+  }
+
+  if ('features' in input) {
+    if (!isPlainObject(input.features)) {
+      errors.push({ field: 'features', message: "'features' must be an object" });
+    } else {
+      for (const [key, value] of Object.entries(input.features)) {
+        if (!isTrainingFeature(key)) {
+          errors.push({ field: `features.${key}`, message: `Unknown feature '${key}'` });
+        } else if (typeof value !== 'boolean') {
+          errors.push({ field: `features.${key}`, message: `'features.${key}' must be a boolean` });
+        }
+      }
+    }
+  }
+
+  return errors;
 }
 
 export class TrainingConfigManager {
@@ -47,13 +87,18 @@ export class TrainingConfigManager {
     return { ...this.config, features: { ...this.config.features } };
   }
 
-  updateConfig(newConfig: Partial<TrainingConfig>): TrainingConfig {
+  updateConfig(input: unknown): { config?: TrainingConfig; errors?: ValidationError[] } {
+    const errors = validateConfigUpdate(input);
+    if (errors.length > 0) {
+      return { errors };
+    }
+
+    const update = input as TrainingConfigUpdate;
     this.config = {
-      ...this.config,
-      ...newConfig,
-      features: { ...this.config.features, ...(newConfig.features || {}) }
+      enabled: update.enabled ?? this.config.enabled,
+      features: { ...this.config.features, ...update.features },
     };
-    return this.getConfig();
+    return { config: this.getConfig() };
   }
 
   private loadFromEnv(): TrainingConfig {
@@ -62,12 +107,6 @@ export class TrainingConfigManager {
       features: {
         skipTrimOnCreate: process.env.TRAINING_SKIP_TRIM_CREATE !== 'false',
         skipTrimOnUpdate: process.env.TRAINING_SKIP_TRIM_UPDATE !== 'false',
-        flakyEndpoint: process.env.TRAINING_FLAKY !== 'false',
-        rateLimiting: process.env.TRAINING_RATE_LIMIT !== 'false',
-        slowEndpoint: process.env.TRAINING_SLOW !== 'false',
-        paginationEdgeCases: process.env.TRAINING_PAGINATION !== 'false',
-        bulkPartialFailures: process.env.TRAINING_BULK_FAIL !== 'false',
-        graphqlComplexityLimit: process.env.TRAINING_GRAPHQL_LIMIT !== 'false',
       },
     };
   }

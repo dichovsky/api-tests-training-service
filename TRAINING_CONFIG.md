@@ -10,29 +10,18 @@ TRAINING_MODE=true npm start
 
 ## Feature Flags
 
-All training features can be individually enabled/disabled:
+Each training feature can be individually enabled/disabled. Features only apply while training mode is enabled.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TRAINING_SKIP_TRIM_CREATE` | true | Skip trimming on entity creation (20% chance) |
+| `TRAINING_SKIP_TRIM_CREATE` | true | Skip trimming on entity creation (30% chance) |
 | `TRAINING_SKIP_TRIM_UPDATE` | true | Skip trimming on entity update (25% chance) |
-| `TRAINING_FLAKY` | true | Enable flaky endpoint with random failures |
-| `TRAINING_RATE_LIMIT` | true | Enable rate limiting |
-| `TRAINING_SLOW` | true | Enable slow endpoint delays |
-| `TRAINING_PAGINATION` | true | Enable pagination edge cases |
-| `TRAINING_BULK_FAIL` | true | Enable partial failures in bulk operations |
-| `TRAINING_GRAPHQL_LIMIT` | true | Enable GraphQL complexity limits |
 
 ## Examples
 
-### Disable all training features
+### Training mode with only the update bug
 ```bash
-TRAINING_MODE=true TRAINING_SKIP_TRIM_CREATE=false TRAINING_SKIP_TRIM_UPDATE=false npm start
-```
-
-### Enable only flaky behavior
-```bash
-TRAINING_MODE=true TRAINING_SKIP_TRIM_CREATE=false TRAINING_SKIP_TRIM_UPDATE=false TRAINING_FLAKY=true TRAINING_RATE_LIMIT=false npm start
+TRAINING_MODE=true TRAINING_SKIP_TRIM_CREATE=false npm start
 ```
 
 ### Production (training disabled)
@@ -40,22 +29,34 @@ TRAINING_MODE=true TRAINING_SKIP_TRIM_CREATE=false TRAINING_SKIP_TRIM_UPDATE=fal
 TRAINING_MODE=false npm start
 ```
 
-## Configuration File
+## Runtime Updates
 
-Create `.env` file:
-```env
-TRAINING_MODE=true
-TRAINING_SKIP_TRIM_CREATE=true
-TRAINING_SKIP_TRIM_UPDATE=true
-TRAINING_FLAKY=true
-TRAINING_RATE_LIMIT=true
-TRAINING_SLOW=true
-```
+The current config is readable by anyone:
 
-## Proxmox Deployment
+- REST: `GET /training-config`
+- GraphQL: `query { trainingConfig { enabled features { skipTrimOnCreate skipTrimOnUpdate } } }`
 
-Update `ct-api-tests-training-service.sh` to expose variables:
+Changing it at runtime requires an admin token. Set `TRAINING_ADMIN_TOKEN` when starting the service; without it, runtime updates are disabled (`403` / GraphQL `FORBIDDEN`).
+
 ```bash
-var_training_skip_trim_create="${var_training_skip_trim_create:-true}"
-var_training_flaky="${var_training_flaky:-true}"
+TRAINING_ADMIN_TOKEN=change-me npm start
 ```
+
+Send the token as a bearer token. Only `enabled` and the feature flags above are accepted, and every value must be a boolean; anything else is rejected (`400` / GraphQL error) and leaves the config unchanged.
+
+```bash
+curl -X PATCH http://localhost:3000/training-config \
+  -H 'Authorization: Bearer change-me' \
+  -H 'Content-Type: application/json' \
+  -d '{"enabled": true, "features": {"skipTrimOnCreate": false}}'
+```
+
+```graphql
+mutation {
+  updateTrainingConfig(config: { enabled: true, features: { skipTrimOnCreate: false } }) {
+    enabled
+  }
+}
+```
+
+A missing or wrong token returns `401` (GraphQL `UNAUTHENTICATED`). Runtime changes are kept in memory only and reset on restart.

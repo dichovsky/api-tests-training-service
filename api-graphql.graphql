@@ -17,12 +17,6 @@ input EntityInput {
 type TrainingFeatures {
   skipTrimOnCreate: Boolean!
   skipTrimOnUpdate: Boolean!
-  flakyEndpoint: Boolean!
-  rateLimiting: Boolean!
-  slowEndpoint: Boolean!
-  paginationEdgeCases: Boolean!
-  bulkPartialFailures: Boolean!
-  graphqlComplexityLimit: Boolean!
 }
 
 type TrainingConfig {
@@ -33,12 +27,6 @@ type TrainingConfig {
 input TrainingFeaturesInput {
   skipTrimOnCreate: Boolean
   skipTrimOnUpdate: Boolean
-  flakyEndpoint: Boolean
-  rateLimiting: Boolean
-  slowEndpoint: Boolean
-  paginationEdgeCases: Boolean
-  bulkPartialFailures: Boolean
-  graphqlComplexityLimit: Boolean
 }
 
 input TrainingConfigInput {
