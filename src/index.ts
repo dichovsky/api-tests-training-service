@@ -3,15 +3,27 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express4';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { EntityService, EntityInput } from './entity.service';
+import { EntityService, EntityInput, defaultTrainingConfig } from './entity.service';
 import { escapeHtml } from './utils/html-sanitizer';
 
 const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(express.json());
 
-const trainingMode = process.env.TRAINING_MODE === 'true';
-const entityService = new EntityService(trainingMode);
+const trainingConfig = {
+  enabled: process.env.TRAINING_MODE === 'true',
+  features: {
+    skipTrimOnCreate: process.env.TRAINING_SKIP_TRIM_CREATE !== 'false',
+    skipTrimOnUpdate: process.env.TRAINING_SKIP_TRIM_UPDATE !== 'false',
+    flakyEndpoint: process.env.TRAINING_FLAKY !== 'false',
+    rateLimiting: process.env.TRAINING_RATE_LIMIT !== 'false',
+    slowEndpoint: process.env.TRAINING_SLOW !== 'false',
+    paginationEdgeCases: process.env.TRAINING_PAGINATION !== 'false',
+    bulkPartialFailures: process.env.TRAINING_BULK_FAIL !== 'false',
+    graphqlComplexityLimit: process.env.TRAINING_GRAPHQL_LIMIT !== 'false',
+  },
+};
+const entityService = new EntityService(trainingConfig);
 
 // Cache spec files at startup to avoid blocking I/O
 const specFiles = {

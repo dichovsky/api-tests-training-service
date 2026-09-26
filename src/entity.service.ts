@@ -14,13 +14,53 @@ export interface ValidationError {
   message: string;
 }
 
+export interface TrainingConfig {
+  enabled: boolean;
+  features: {
+    skipTrimOnCreate: boolean;
+    skipTrimOnUpdate: boolean;
+    flakyEndpoint: boolean;
+    rateLimiting: boolean;
+    slowEndpoint: boolean;
+    paginationEdgeCases: boolean;
+    bulkPartialFailures: boolean;
+    graphqlComplexityLimit: boolean;
+  };
+}
+
+export const defaultTrainingConfig: TrainingConfig = {
+  enabled: false,
+  features: {
+    skipTrimOnCreate: true,
+    skipTrimOnUpdate: true,
+    flakyEndpoint: true,
+    rateLimiting: true,
+    slowEndpoint: true,
+    paginationEdgeCases: true,
+    bulkPartialFailures: true,
+    graphqlComplexityLimit: true,
+  },
+};
+
 export class EntityService {
   private entities: Entity[] = [];
   private nextId = 1;
-  private trainingMode: boolean;
+  private trainingConfig: TrainingConfig;
 
-  constructor(trainingMode = false) {
-    this.trainingMode = trainingMode;
+  constructor(trainingConfig: TrainingConfig = defaultTrainingConfig) {
+    this.trainingConfig = trainingConfig;
+  }
+
+  private get trainingMode(): boolean {
+    return this.trainingConfig.enabled;
+  }
+
+  private shouldSkipTrimCreate(): boolean {
+    return this.trainingMode && this.trainingConfig.features.skipTrimOnCreate;
+  }
+
+  private shouldSkipTrimUpdate(): boolean {
+    return this.trainingMode && this.trainingConfig.features.skipTrimOnUpdate;
   }
 
   private sanitizeName(name: string): string {
@@ -54,7 +94,7 @@ export class EntityService {
     let name = this.sanitizeName(input.name);
     
     // Training mode bug injection: sometimes skip trimming
-    if (this.trainingMode && Math.random() < 0.3) {
+    if (this.shouldSkipTrimCreate() && Math.random() < 0.3) {
       // Intentionally skip trimming to create bug for trainees
       name = input.name;
     }
@@ -94,7 +134,7 @@ export class EntityService {
     let name = this.sanitizeName(input.name);
     
     // Training mode bug: skip trimming on update
-    if (this.trainingMode && Math.random() < 0.25) {
+    if (this.shouldSkipTrimUpdate() && Math.random() < 0.25) {
       name = input.name;
     }
 
