@@ -9,6 +9,7 @@ This project is a Node.js service built with TypeScript, designed to provide a p
 - [Features](#features)
 - [API Endpoints](#api-endpoints)
 - [GraphQL](#graphql)
+- [Proxmox Deployment](#proxmox-deployment)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -47,6 +48,7 @@ TRAINING_MODE=true npm start
 - **REST API** for CRUD operations on entities
 - **GraphQL API** for flexible querying and mutations
 - **Training mode** with intentional bugs for learning
+- **Proxmox CT script** for easy home lab deployment
 
 ## API Endpoints
 
@@ -97,6 +99,29 @@ mutation {
   }
 }
 ```
+
+## Proxmox Deployment
+
+Deploy this service to Proxmox VE using Community Scripts:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-training-service/main/ct-api-tests-training-service.sh)"
+```
+
+**Features:**
+- Unprivileged LXC container
+- Automatic Node.js 20 installation
+- Git-based updates with `update_script()`
+- Systemd service with auto-restart
+- Configurable port and training mode
+
+**Update the service:**
+```bash
+# Inside the container
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-training-service/main/ct-api-tests-training-service.sh)"
+```
+
+The service will automatically pull latest code, rebuild TypeScript, and restart.
 
 ## Contributing
 

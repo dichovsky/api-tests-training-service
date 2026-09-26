@@ -1,0 +1,41 @@
+{
+  "name": "api-tests-training-service",
+  "title": "API Tests Training Service",
+  "description": "Entities CRUD service with REST and GraphQL endpoints for API testing training",
+  "category": "training",
+  "tags": "training;api-tests;graphql",
+  "url": "https://github.com/dichovsky/api-tests-training-service",
+  "author": "Igor Magdich",
+  "version": "1.0.0",
+  "script": "ct-api-tests-training-service.sh",
+  "install_script": "install-api-tests-training-service.sh",
+  "ports": [
+    3000
+  ],
+  "variables": [
+    {
+      "name": "var_git_repo",
+      "type": "string",
+      "default": "https://github.com/dichovsky/api-tests-training-service.git",
+      "description": "Git repository URL for the API training service"
+    },
+    {
+      "name": "var_install_path",
+      "type": "string",
+      "default": "/opt/api-tests-training-service",
+      "description": "Installation path inside container"
+    },
+    {
+      "name": "var_port",
+      "type": "number",
+      "default": 3000,
+      "description": "Port for the API service"
+    },
+    {
+      "name": "var_training_mode",
+      "type": "boolean",
+      "default": false,
+      "description": "Enable training mode with intentional bugs"
+    }
+  ]
+}
