@@ -3,7 +3,8 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { EntityService } from './entity.service';
+import { EntityService, EntityInput } from './entity.service';
+import { escapeHtml } from './utils/html-sanitizer';
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -11,6 +12,14 @@ app.use(express.json());
 
 const trainingMode = process.env.TRAINING_MODE === 'true';
 const entityService = new EntityService(trainingMode);
+
+// Cache spec files at startup to avoid blocking I/O
+const specFiles = {
+  rest: readFileSync(join(__dirname, '..', 'api-rest.yaml'), 'utf-8'),
+  graphql: readFileSync(join(__dirname, '..', 'api-graphql.graphql'), 'utf-8'),
+  graphqlDocs: readFileSync(join(__dirname, '..', 'api-graphql.md'), 'utf-8'),
+  requirements: readFileSync(join(__dirname, '..', 'REQUIREMENTS.md'), 'utf-8'),
+};
 
 // Serve API specifications
 app.get("/api-specs", (req: Request, res: Response) => {
@@ -62,8 +71,7 @@ app.get("/api-specs", (req: Request, res: Response) => {
 });
 
 app.get("/api-specs/requirements", (req: Request, res: Response) => {
-  const reqPath = join(__dirname, '..', 'REQUIREMENTS.md');
-  const reqContent = readFileSync(reqPath, 'utf-8');
+  const reqContent = specFiles.requirements;
   const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -83,7 +91,7 @@ app.get("/api-specs/requirements", (req: Request, res: Response) => {
       <body>
         <div class="container">
           <h1>API Tests Training Service - Requirements</h1>
-          <pre>${reqContent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+          <pre>${escapeHtml(reqContent)}</pre>
         </div>
       </body>
     </html>
@@ -92,31 +100,25 @@ app.get("/api-specs/requirements", (req: Request, res: Response) => {
 });
 
 app.get("/api-specs/REQUIREMENTS.md", (req: Request, res: Response) => {
-  const reqPath = join(__dirname, '..', 'REQUIREMENTS.md');
-  const reqContent = readFileSync(reqPath, 'utf-8');
+  const reqContent = specFiles.requirements;
   res.setHeader('Content-Type', 'text/markdown');
   res.setHeader('Content-Disposition', 'attachment; filename="REQUIREMENTS.md"');
   res.send(reqContent);
 });
 
 app.get("/api-specs/rest", (req: Request, res: Response) => {
-  const specPath = join(__dirname, '..', 'api-rest.yaml');
-  const specContent = readFileSync(specPath, 'utf-8');
   res.setHeader('Content-Type', 'text/yaml');
-  res.send(specContent);
+  res.send(specFiles.rest);
 });
 
 app.get("/api-specs/rest.yaml", (req: Request, res: Response) => {
-  const specPath = join(__dirname, '..', 'api-rest.yaml');
-  const specContent = readFileSync(specPath, 'utf-8');
-  res.setHeader('Content-Type', 'application/yaml');
+  res.setHeader('Content-Type', 'application/x-yaml');
   res.setHeader('Content-Disposition', 'attachment; filename="api-rest.yaml"');
-  res.send(specContent);
+  res.send(specFiles.rest);
 });
 
 app.get("/api-specs/graphql", (req: Request, res: Response) => {
-  const schemaPath = join(__dirname, '..', 'api-graphql.graphql');
-  const schemaContent = readFileSync(schemaPath, 'utf-8');
+  const schemaContent = specFiles.graphql;
   const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -135,7 +137,7 @@ app.get("/api-specs/graphql", (req: Request, res: Response) => {
       <body>
         <div class="container">
           <h1>GraphQL Schema</h1>
-          <pre><code>${schemaContent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>
+          <pre><code>${escapeHtml(schemaContent)}</code></pre>
         </div>
       </body>
     </html>
@@ -144,16 +146,14 @@ app.get("/api-specs/graphql", (req: Request, res: Response) => {
 });
 
 app.get("/api-specs/graphql.graphql", (req: Request, res: Response) => {
-  const schemaPath = join(__dirname, '..', 'api-graphql.graphql');
-  const schemaContent = readFileSync(schemaPath, 'utf-8');
+  const schemaContent = specFiles.graphql;
   res.setHeader('Content-Type', 'text/plain');
   res.setHeader('Content-Disposition', 'attachment; filename="api-graphql.graphql"');
   res.send(schemaContent);
 });
 
 app.get("/api-specs/graphql.md", (req: Request, res: Response) => {
-  const docsPath = join(__dirname, '..', 'api-graphql.md');
-  const docsContent = readFileSync(docsPath, 'utf-8');
+  const docsContent = specFiles.graphqlDocs;
   const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -173,7 +173,7 @@ app.get("/api-specs/graphql.md", (req: Request, res: Response) => {
       <body>
         <div class="container">
           <h1>GraphQL API Documentation</h1>
-          <div class="markdown">${docsContent.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>
+          <div class="markdown">${escapeHtml(docsContent)}</div>
         </div>
       </body>
     </html>
@@ -535,8 +535,7 @@ app.get("/entities/:id", (req: Request, res: Response) => {
     }`
   );
   const entity = entityService.getById(Number(req.params.id));
-  if (!entity) return res.status(404).send("Entity not found");
-  console.log(entity);
+  if (!entity) return res.status(404).json({ error: "Entity not found" });
   res.json(entity);
 });
 
@@ -565,7 +564,7 @@ app.put("/entities/:id", (req: Request, res: Response) => {
   );
   
   const result = entityService.update(Number(req.params.id), req.body);
-  if (result.notFound) return res.status(404).send("Entity not found");
+  if (result.notFound) return res.status(404).json({ error: "Entity not found" });
   if (result.errors) {
     return res.status(400).json({ error: result.errors[0].message });
   }
@@ -581,54 +580,50 @@ app.delete("/entities/:id", (req: Request, res: Response) => {
     }`
   );
   const result = entityService.delete(Number(req.params.id));
-  if (result.notFound) return res.status(404).send("Entity not found");
+  if (result.notFound) return res.status(404).json({ error: "Entity not found" });
   res.json(result.entity);
 });
 
 // GraphQL setup
-const typeDefs = `
-  type Entity {
-    id: ID!
-    name: String!
-    size: Float
-  }
+const typeDefs = readFileSync(join(__dirname, '..', 'api-graphql.graphql'), 'utf-8');
 
-  input EntityInput {
-    name: String!
-    size: Float
-  }
+interface CreateEntityArgs {
+  name: string;
+  size?: number;
+}
 
-  type Query {
-    entities: [Entity!]!
-    entity(id: ID!): Entity
-    trainingMode: Boolean!
-  }
-
-  type Mutation {
-    createEntity(input: EntityInput!): Entity!
-    updateEntity(id: ID!, input: EntityInput!): Entity!
-    deleteEntity(id: ID!): Entity!
-  }
-`;
+interface UpdateEntityArgs {
+  id: number;
+  name: string;
+  size?: number;
+}
 
 const resolvers = {
   Query: {
-    entities: () => entityService.getAll(),
-    entity: (_: any, { id }: { id: string }) => entityService.getById(Number(id)),
+    entities: (): any[] => entityService.getAll(),
+    entity: (_: any, { id }: { id: string }) => {
+      const idNum = Number(id);
+      if (isNaN(idNum)) return null;
+      return entityService.getById(idNum);
+    },
     trainingMode: () => entityService.getTrainingMode(),
   },
   Mutation: {
-    createEntity: (_: any, { input }: { input: any }) => {
+    createEntity: (_: any, { input }: { input: EntityInput }) => {
       const result = entityService.create(input);
       if (result.errors) {
         throw new Error(result.errors[0].message);
       }
       return result.entity;
     },
-    updateEntity: (_: any, { id, input }: { id: string; input: any }) => {
-      const result = entityService.update(Number(id), input);
+    updateEntity: (_: any, { id, input }: { id: string; input: EntityInput }) => {
+      const idNum = Number(id);
+      if (isNaN(idNum)) {
+        throw new Error('Invalid ID');
+      }
+      const result = entityService.update(idNum, input);
       if (result.notFound) {
-        throw new Error("Entity not found");
+        throw new Error('Entity not found');
       }
       if (result.errors) {
         throw new Error(result.errors[0].message);
@@ -636,9 +631,13 @@ const resolvers = {
       return result.entity;
     },
     deleteEntity: (_: any, { id }: { id: string }) => {
-      const result = entityService.delete(Number(id));
+      const idNum = Number(id);
+      if (isNaN(idNum)) {
+        throw new Error('Invalid ID');
+      }
+      const result = entityService.delete(idNum);
       if (result.notFound) {
-        throw new Error("Entity not found");
+        throw new Error('Entity not found');
       }
       return result.entity;
     },

@@ -65,12 +65,7 @@ export class EntityService {
     };
 
     if (input.size !== undefined) {
-      // Training mode bug: allow negative size
-      if (this.trainingMode && Math.random() < 0.2) {
-        entity.size = input.size; // skip validation
-      } else {
-        entity.size = input.size;
-      }
+      entity.size = input.size;
     }
 
     this.entities.push(entity);
@@ -103,7 +98,12 @@ export class EntityService {
       name = input.name;
     }
 
-    const updatedEntity: Entity = { id, name };
+    // Preserve existing fields when updating partially
+    const existingEntity = this.entities[idx];
+    const updatedEntity: Entity = { 
+      ...existingEntity,
+      name,
+    };
     
     if (input.size !== undefined) {
       updatedEntity.size = input.size;
