@@ -34,7 +34,7 @@ export class EntityService {
       errors.push({ field: 'name', message: "Invalid or missing 'name' property" });
     }
 
-    if (input.size !== undefined) {
+    if (input.size != null) {
       if (typeof input.size !== 'number') {
         errors.push({ field: 'size', message: "Invalid 'size' property data type" });
       } else if (input.size < 0) {
@@ -64,7 +64,7 @@ export class EntityService {
       name,
     };
 
-    if (input.size !== undefined) {
+    if (input.size != null) {
       entity.size = input.size;
     }
 
@@ -98,14 +98,13 @@ export class EntityService {
       name = input.name;
     }
 
-    // Preserve existing fields when updating partially
-    const existingEntity = this.entities[idx];
-    const updatedEntity: Entity = { 
-      ...existingEntity,
+    // PUT semantics: replace the entity, so an omitted size is removed
+    const updatedEntity: Entity = {
+      id,
       name,
     };
-    
-    if (input.size !== undefined) {
+
+    if (input.size != null) {
       updatedEntity.size = input.size;
     }
 

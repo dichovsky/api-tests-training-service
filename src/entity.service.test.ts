@@ -1,0 +1,25 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { EntityService, EntityInput } from './entity.service';
+
+test('update replaces the entity: omitted size is removed', () => {
+  const service = new EntityService();
+  const { entity } = service.create({ name: 'a', size: 5 });
+  const result = service.update(entity!.id, { name: 'b' });
+  assert.deepEqual(result.entity, { id: entity!.id, name: 'b' });
+});
+
+test('null size is treated as absent, not rejected', () => {
+  const service = new EntityService();
+  const withNull = { name: 'x', size: null } as unknown as EntityInput;
+  const created = service.create(withNull);
+  assert.deepEqual(created, { entity: { id: 1, name: 'x' } });
+  assert.deepEqual(service.update(1, withNull), { entity: { id: 1, name: 'x' } });
+});
+
+test('invalid size is still rejected', () => {
+  const service = new EntityService();
+  assert.equal(service.create({ name: 'x', size: -1 }).errors?.[0].field, 'size');
+  const wrongType = { name: 'x', size: '1' } as unknown as EntityInput;
+  assert.equal(service.create(wrongType).errors?.[0].field, 'size');
+});

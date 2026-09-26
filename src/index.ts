@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import { ApolloServer } from '@apollo/server';
-import { expressMiddleware } from '@apollo/server/express4';
+import { expressMiddleware } from '@as-integrations/express4';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { EntityService, EntityInput } from './entity.service';
@@ -186,7 +186,7 @@ app.get("/", (req: Request, res: Response) => {
   console.log(
     `[${new Date().toISOString()}] GET / ${req.headers["user-agent"]}`
   );
-  // Serve a minimal OpenAPI UI using Swagger UI CDN and a JS OpenAPI spec
+  // Serve a minimal OpenAPI UI using Swagger UI CDN and the REST spec from /api-specs/rest
   const apiDocumentationHtml = `
     <!DOCTYPE html>
     <html lang="en">
@@ -205,151 +205,8 @@ app.get("/", (req: Request, res: Response) => {
         <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
         <script>
           window.onload = function() {
-            const spec = {
-              openapi: "3.0.0",
-              info: {
-                title: "Entities API",
-                version: "1.1.0",
-                description: "A simple API for managing entities."
-              },
-              servers: [
-                { url: "http://magdich.cloud:${PORT}" }
-              ],
-              paths: {
-                "/entities": {
-                  get: {
-                    summary: "Get all entities",
-                    responses: {
-                      "200": {
-                        description: "A list of entities",
-                        content: {
-                          "application/json": {
-                            schema: {
-                              type: "array",
-                              items: { $ref: "#/components/schemas/Entity" }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  },
-                  post: {
-                    summary: "Create a new entity",
-                    requestBody: {
-                      required: true,
-                      content: {
-                        "application/json": {
-                          schema: { $ref: "#/components/schemas/EntityInput" }
-                        }
-                      }
-                    },
-                    responses: {
-                      "201": {
-                        description: "Entity created",
-                        content: {
-                          "application/json": {
-                            schema: { $ref: "#/components/schemas/Entity" }
-                          }
-                        }
-                      },
-                      "400": { description: "Invalid input" }
-                    }
-                  }
-                },
-                "/entities/{id}": {
-                  get: {
-                    summary: "Get an entity by ID",
-                    parameters: [
-                      {
-                        name: "id",
-                        in: "path",
-                        required: true,
-                        schema: { type: "integer" }
-                      }
-                    ],
-                    responses: {
-                      "200": {
-                        description: "Entity found",
-                        content: {
-                          "application/json": {
-                            schema: { $ref: "#/components/schemas/Entity" }
-                          }
-                        }
-                      },
-                      "404": { description: "Entity not found" }
-                    }
-                  },
-                  put: {
-                    summary: "Update an entity by ID",
-                    parameters: [
-                      {
-                        name: "id",
-                        in: "path",
-                        required: true,
-                        schema: { type: "integer" }
-                      }
-                    ],
-                    requestBody: {
-                      required: true,
-                      content: {
-                        "application/json": {
-                          schema: { $ref: "#/components/schemas/EntityInput" }
-                        }
-                      }
-                    },
-                    responses: {
-                      "200": {
-                        description: "Entity updated",
-                        content: {
-                          "application/json": {
-                            schema: { $ref: "#/components/schemas/Entity" }
-                          }
-                        }
-                      },
-                      "400": { description: "Invalid input" },
-                      "404": { description: "Entity not found" }
-                    }
-                  },
-                  delete: {
-                    summary: "Delete an entity by ID",
-                    parameters: [
-                      {
-                        name: "id",
-                        in: "path",
-                        required: true,
-                        schema: { type: "integer" }
-                      }
-                    ],
-                    responses: {
-                      "200": { description: "Entity deleted" },
-                      "404": { description: "Entity not found" }
-                    }
-                  }
-                }
-              },
-              components: {
-                schemas: {
-                  Entity: {
-                    type: "object",
-                    properties: {
-                      id: { type: "integer", example: 1 },
-                      name: { type: "string", example: "Sample Entity" },
-                      size: { type: "number", example: 10, description: "Optional positive number" }
-                    }
-                  },
-                  EntityInput: {
-                    type: "object",
-                    properties: {
-                      name: { type: "string", example: "Sample Entity" },
-                      size: { type: "number", example: 10, description: "Optional positive number" }
-                    },
-                    required: ["name"]
-                  }
-                }
-              }
-            };
             window.ui = SwaggerUIBundle({
-              spec: spec,
+              url: "/api-specs/rest",
               dom_id: '#swagger-ui',
               presets: [
                 SwaggerUIBundle.presets.apis,
@@ -585,7 +442,7 @@ app.delete("/entities/:id", (req: Request, res: Response) => {
 });
 
 // GraphQL setup
-const typeDefs = readFileSync(join(__dirname, '..', 'api-graphql.graphql'), 'utf-8');
+const typeDefs = specFiles.graphql;
 
 interface CreateEntityArgs {
   name: string;

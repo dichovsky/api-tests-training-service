@@ -12,7 +12,8 @@ info:
     
     All endpoints follow REST conventions and return JSON responses.
 servers:
-  - url: http://localhost:3000
+  - url: /
+    description: Current host
   - url: http://magdich.cloud:3000
 paths:
   /entities:
@@ -104,7 +105,7 @@ paths:
       tags:
         - Entities
       summary: Update entity
-      description: Update an existing entity's name and/or size
+      description: Replace an existing entity's name and size (omitting size removes it)
       operationId: updateEntity
       parameters:
         - name: id
