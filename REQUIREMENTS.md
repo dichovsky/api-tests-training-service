@@ -3,7 +3,7 @@
 ## Req-1
 The service should provide an option to create and store an entity with the following properties:
     - name (string, required)
-    - size (positive number, optional)
+    - size (non-negative number, optional; zero is valid, and null is treated as absent)
 
 ## Req-2
 While storing an entity, the service should assign a unique id to it and return it to the user (id property)
@@ -18,6 +18,9 @@ The service should provide an option to search an entity by unique id
 The service should provide an option to update the following entity properties:
     - name
     - size
+
+Updating replaces the entity properties: omitting size or passing null removes any previous size.
+REST responses omit an absent size; GraphQL returns null when that field is selected.
 
 ## Req-6
 The service should provide an option to delete an entity by unique id
