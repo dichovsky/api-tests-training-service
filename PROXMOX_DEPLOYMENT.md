@@ -4,11 +4,57 @@
 
 ### Quick Start
 
-Deploy to Proxmox VE using Community Scripts:
+The unauthenticated raw-URL quick start below is usable only when this repository
+is public and the referenced scripts are published. The repository is currently
+private; use the private-repository procedure below. An HTTP 404 from a private
+raw URL does not mean the file is absent from an authenticated checkout.
+
+For a public repository, deploy using Community Scripts:
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-training-service/main/ct-api-tests-training-service.sh)"
 ```
+
+### Private repository installation
+
+Use an authenticated local checkout of the intended revision to obtain both
+`ct-api-tests-training-service.sh` and `install-api-tests-training-service.sh`.
+Transfer those files to a private directory on the Proxmox host, such as
+`/root/validation/`, through the existing authorized SSH connection. Record the
+revision and script hashes; do not replace the private raw URL with an
+unauthenticated download and assume it succeeded.
+
+The new guest also needs access to application source **before the installer runs
+`git clone`**. Host or workstation GitHub access does not automatically grant guest
+access. Choose and authorize one of these source arrangements:
+
+- A repository-specific, read-only SSH deploy key, provisioned in the guest by
+  the bootstrap before cloning, with the expected GitHub host key verified. This
+  is the preferred arrangement for ongoing updates. Creating or registering a
+  key is a separate operator decision; the scripts do not do it automatically.
+- A private bare Git mirror transferred through SSH and made available inside
+  the guest before cloning. Set `var_git_repo` to its guest-local `file://` URL.
+  This supports an isolated validation fixture without granting GitHub access;
+  future source updates require refreshing that mirror.
+
+Once guest SSH access has been arranged, run the staged files on the Proxmox host:
+
+```bash
+var_git_repo='git@github.com:dichovsky/api-tests-training-service.git' \
+var_git_ref='<branch-tag-or-commit>' \
+var_install_script_path='/root/validation/install-api-tests-training-service.sh' \
+bash /root/validation/ct-api-tests-training-service.sh
+```
+
+For a mirror fixture, substitute the guest-local mirror URL for `var_git_repo`.
+The local installer is copied into the guest and its private `file://` URL is
+recorded for later updates. Leave `var_install_script_url` unset for this path;
+a private unauthenticated raw URL cannot download its replacement.
+
+If a mirror-backed deployment later receives approved GitHub SSH access, perform
+one update with `var_git_repo='git@github.com:dichovsky/api-tests-training-service.git'`.
+A successful update records that source for later runs. Changing Git `origin`
+alone is insufficient: the updater sets origin from its recorded source settings.
 
 ### Configuration Variables
 
@@ -22,6 +68,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-trai
 
 ### Advanced Installation
 
+The raw-URL example requires a public repository. Apply the same settings to the
+staged local wrapper for a private repository.
+
 ```bash
 var_git_repo='https://github.com/dichovsky/api-tests-training-service.git' \
 var_port='8080' \
@@ -31,7 +80,26 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-trai
 
 ### Update Service
 
-Inside the container, run:
+Inside a private-repository container, run the wrapper from the installed
+checkout. For the default installation path:
+
+```bash
+bash /opt/api-tests-training-service/ct-api-tests-training-service.sh
+```
+
+For a custom installation path, run `bash <configured-install-path>/ct-api-tests-training-service.sh`.
+The recorded configuration selects the cached installer, so neither command
+requires an unauthenticated private raw URL. The guest still needs access to its
+recorded Git source to fetch application updates.
+
+Updating the application checkout does not automatically replace the cached
+installer at `/usr/local/lib/api-tests-training-service/installer.sh`. To upgrade
+that installer, obtain the intended version through an authenticated checkout,
+stage it securely in the guest, and validate the new installer before accepting
+its result. Keep a known-good copy for recovery.
+
+When the repository is public and the wrapper is published, this alternative is
+also available:
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-training-service/main/ct-api-tests-training-service.sh)"
@@ -116,8 +184,10 @@ engine version. Application source and the engine are selected independently.
 A host-local installer is retained privately inside the guest at
 `/usr/local/lib/api-tests-training-service/installer.sh`; its `file://` URL becomes
 the update source unless an explicit `var_install_script_url` was also supplied.
-Use an explicit published branch URL when updates should download that branch’s
-installer instead. Published quick-start defaults remain on `main`.
+Use an explicit branch URL only when the guest can actually download that
+installer. The private-repository path uses the cached installer instead. The
+raw quick-start defaults remain on `main`; a local validation run does not prove
+those unpublished or unauthenticated entry points work.
 
 Keep control of Community Scripts’ failure prompts during validation: some
 upstream failure paths offer automatic container removal after a timeout. Retain
