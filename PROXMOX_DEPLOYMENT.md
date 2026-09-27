@@ -67,7 +67,7 @@ To rotate it, replace the value in that file and run `systemctl restart api-test
 
 ```bash
 systemctl status api-tests-training-service
-systemctl logs -f api-tests-training-service
+journalctl -u api-tests-training-service -f
 systemctl restart api-tests-training-service
 ```
 
