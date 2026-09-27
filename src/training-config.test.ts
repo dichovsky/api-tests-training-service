@@ -1,4 +1,4 @@
-import { test, mock } from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EntityService, TrainingConfigManager } from './entity.service';
 import { checkAdminToken } from './admin-auth';
@@ -40,19 +40,49 @@ test('a valid partial update only changes the given values', () => {
   }
 });
 
-test('skipTrimOnCreate controls whether training mode skips trimming', () => {
-  mock.method(Math, 'random', () => 0);
-  try {
-    const service = new EntityService();
-    manager.updateConfig({ enabled: true, features: { skipTrimOnCreate: true } });
-    assert.equal(service.create({ name: ' a ' }).entity?.name, ' a ');
-    manager.updateConfig({ features: { skipTrimOnCreate: false } });
-    assert.equal(service.create({ name: ' a ' }).entity?.name, 'a');
-  } finally {
-    mock.restoreAll();
-    manager.updateConfig(baseline);
+for (const enabled of [false, true]) {
+  for (const skipTrimOnCreate of [false, true]) {
+    for (const skipTrimOnUpdate of [false, true]) {
+      test(`trimming respects independent flags: enabled=${enabled}, create=${skipTrimOnCreate}, update=${skipTrimOnUpdate}`, (t) => {
+        // Zero always selects the intentional defect when its flag is active.
+        t.mock.method(Math, 'random', () => 0);
+        manager.updateConfig({ enabled, features: { skipTrimOnCreate, skipTrimOnUpdate } });
+        try {
+          const service = new EntityService();
+          const created = service.create({ name: ' created ' }).entity!;
+          assert.equal(created.name, enabled && skipTrimOnCreate ? ' created ' : 'created');
+          const updated = service.update(created.id, { name: ' updated ' }).entity!;
+          assert.equal(updated.name, enabled && skipTrimOnUpdate ? ' updated ' : 'updated');
+          assert.deepEqual(service.getById(created.id), updated);
+        } finally {
+          manager.updateConfig(baseline);
+        }
+      });
+    }
   }
-});
+}
+
+for (const operation of ['create', 'update'] as const) {
+  test(`${operation} training defect has the documented probability boundary`, (t) => {
+    const threshold = operation === 'create' ? 0.3 : 0.25;
+    let randomValue = 0;
+    t.mock.method(Math, 'random', () => randomValue);
+    manager.updateConfig({ enabled: true, features: { skipTrimOnCreate: true, skipTrimOnUpdate: true } });
+    try {
+      const service = new EntityService();
+      const existing = service.create({ name: 'initial' }).entity!;
+      for (const value of [0, threshold - 0.000001, threshold, 0.999999]) {
+        randomValue = value;
+        const result = operation === 'create'
+          ? service.create({ name: ' name ' })
+          : service.update(existing.id, { name: ' name ' });
+        assert.equal(result.entity?.name, value < threshold ? ' name ' : 'name', `Math.random()=${value}`);
+      }
+    } finally {
+      manager.updateConfig(baseline);
+    }
+  });
+}
 
 test('config updates are disabled when no admin token is configured', () => {
   assert.equal(checkAdminToken('Bearer anything', undefined), 'disabled');

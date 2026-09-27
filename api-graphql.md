@@ -18,7 +18,7 @@ type Entity {
   """Name of the entity, leading/trailing whitespace is trimmed"""
   name: String!
   
-  """Optional positive number representing size"""
+  """Optional non-negative number representing size; null when absent"""
   size: Float
 }
 
@@ -29,7 +29,7 @@ input EntityInput {
   """Name of the entity, must be non-empty after trimming"""
   name: String!
   
-  """Optional positive number"""
+  """Optional non-negative number; zero is valid and null is treated as absent"""
   size: Float
 }
 
@@ -67,7 +67,8 @@ type Mutation {
   createEntity(input: EntityInput!): Entity!
   
   """
-  Update an existing entity's name and/or size
+  Replace an existing entity's name and size
+  Omitting size or passing null removes any previous size
   Errors: Entity not found (404), Invalid input (400)
   """
   updateEntity(id: ID!, input: EntityInput!): Entity!
@@ -263,5 +264,7 @@ When `TRAINING_MODE=true` environment variable is set:
 
 - GraphQL and REST APIs share the same `EntityService` business logic
 - Both interfaces enforce the same validation rules
+- Size accepts zero and positive numbers; omitted or null input means no size
+- REST responses omit an absent size; GraphQL returns null when size is selected
 - Name trimming is applied consistently across both APIs
 - In-memory storage is used for prototyping (data lost on restart)

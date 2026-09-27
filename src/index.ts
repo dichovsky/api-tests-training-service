@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express, { NextFunction, Request, Response } from "express";
 import { ApolloServer } from '@apollo/server';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import { expressMiddleware } from '@as-integrations/express4';
@@ -12,6 +12,12 @@ import { escapeHtml } from './utils/html-sanitizer';
 const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(express.json());
+app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (typeof error === 'object' && error !== null && 'type' in error && error.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Invalid JSON body' });
+  }
+  next(error);
+});
 
 const entityService = new EntityService();
 

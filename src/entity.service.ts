@@ -149,7 +149,7 @@ export class EntityService {
     }
 
     if (input.size != null) {
-      if (typeof input.size !== 'number') {
+      if (typeof input.size !== 'number' || !Number.isFinite(input.size)) {
         errors.push({ field: 'size', message: "Invalid 'size' property data type" });
       } else if (input.size < 0) {
         errors.push({ field: 'size', message: "'size' must be a non-negative number" });

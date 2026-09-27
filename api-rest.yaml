@@ -8,7 +8,7 @@ info:
     This API provides CRUD operations for entities with the following properties:
     - id: unique identifier (auto-generated)
     - name: string, required, trimmed
-    - size: positive number, optional
+    - size: non-negative number, optional; zero is valid and null input is treated as absent
     
     All endpoints follow REST conventions and return JSON responses.
 servers:
@@ -110,7 +110,7 @@ paths:
       tags:
         - Entities
       summary: Update entity
-      description: Replace an existing entity's name and size (omitting size removes it)
+      description: Replace an existing entity's name and size (omitting size or passing null removes it)
       operationId: updateEntity
       parameters:
         - name: id
@@ -291,7 +291,7 @@ components:
           minLength: 1
         size:
           type: number
-          description: Optional positive number representing size
+          description: Optional non-negative number representing size; omitted when absent
           example: 10
           minimum: 0
       example:
@@ -310,8 +310,8 @@ components:
           example: "New Entity"
           minLength: 1
         size:
-          type: number
-          description: Optional positive number
+          type: [number, 'null']
+          description: Optional non-negative number; zero is valid, and null is treated as absent
           example: 15
           minimum: 0
       example:
