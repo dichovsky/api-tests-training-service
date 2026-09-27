@@ -59,7 +59,6 @@ TRAINING_MODE=true npm start
 
 In training mode, service randomly introduces bugs:
 - Skips name trimming (30% chance on create, 25% on update)
-- Allows negative size to pass validation (20% chance)
 - Helps trainees identify edge cases and validation issues
 
 ## Testing

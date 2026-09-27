@@ -257,7 +257,6 @@ Common errors:
 
 When `TRAINING_MODE=true` environment variable is set:
 - Service may randomly skip name trimming (30% create, 25% update)
-- Service may allow negative sizes to pass validation (20% chance)
 - Use `trainingMode` query to check status
 
 ## Integration Notes
