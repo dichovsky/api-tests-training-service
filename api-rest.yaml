@@ -249,6 +249,14 @@ paths:
                 $ref: '#/components/schemas/Error'
               example:
                 error: "Missing or invalid admin token"
+        '429':
+          description: Too many failed token attempts from this client (5 within 15 minutes); blocked until the window ends, even with the right token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Too many failed admin token attempts, try again later"
         '403':
           description: Runtime updates disabled (no TRAINING_ADMIN_TOKEN on the server)
           content:

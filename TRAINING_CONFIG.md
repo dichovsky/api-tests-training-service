@@ -59,4 +59,4 @@ mutation {
 }
 ```
 
-A missing or wrong token returns `401` (GraphQL `UNAUTHENTICATED`). Runtime changes are kept in memory only and reset on restart.
+A missing or wrong token returns `401` (GraphQL `UNAUTHENTICATED`). After 5 wrong tokens from the same client IP within 15 minutes, that client gets `429` (GraphQL `RATE_LIMITED`) until the window ends, even with the right token. REST and GraphQL share the count. Runtime changes are kept in memory only and reset on restart.
