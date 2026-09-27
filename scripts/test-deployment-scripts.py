@@ -163,7 +163,7 @@ color() { :; }
 check_container_storage() { :; }
 check_container_resources() { :; }
 catch_errors() { set -Ee -o pipefail; }
-start() { :; }
+start() { DEV_MODE_KEEP="${TEST_KEEP_MODE:-false}"; }
 build_container() { cp "$COMMUNITY_SCRIPTS_ROOT/install/$var_install.sh" "$STAGED_OUTPUT"; }
 description() { IP=192.0.2.1; }
 msg_ok() { :; }
@@ -181,6 +181,13 @@ msg_error() { echo "$*" >&2; }
         self.assertNotIn('pct exec', staged)
         syntax = subprocess.run(['bash', '-n', str(staged_output)], capture_output=True, text=True)
         self.assertEqual(syntax.returncode, 0, syntax.stderr)
+        staged_output.unlink()
+        result = subprocess.run(['bash', str(ROOT / 'ct-api-tests-training-service.sh')],
+                                env=dict(env, TEST_KEEP_MODE='true'), capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Debug keep mode is unsupported', result.stderr)
+        self.assertFalse(staged_output.exists(), 'Keep mode must stop before container creation')
+        self.assertNotIn('Completed successfully', result.stdout)
 
 
 if __name__ == '__main__':

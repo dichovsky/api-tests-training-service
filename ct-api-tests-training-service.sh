@@ -112,6 +112,13 @@ if command -v pveversion >/dev/null 2>&1; then
 fi
 
 start
+# Upstream's keep mode deliberately returns success after failed provisioning.
+# Check after start so interactive selections have also been normalized.
+if command -v pveversion >/dev/null 2>&1 && [[ "${DEV_MODE_KEEP:-false}" == true ]]; then
+    [[ -z "${_app_stage:-}" ]] || rm -rf -- "$_app_stage"
+    msg_error 'Debug keep mode is unsupported: it can hide installation failures. Use dev_mode=logs for validation.'
+    exit 1
+fi
 build_container
 [[ -z "${_app_stage:-}" ]] || rm -rf -- "$_app_stage"
 description

@@ -195,6 +195,10 @@ the test guest when inspecting failures and recover it before further acceptance
 checks. A patched/local run proves only the recorded script versions; it does not
 prove a different published entry point works.
 
+The wrapper rejects Community Scripts' `keep` debug mode before container creation:
+upstream can return success after failed provisioning in that mode. Use
+`dev_mode=logs` for validation and explicitly control any failure/removal prompts.
+
 Local command-double checks (no cluster mutations):
 
 ```bash
