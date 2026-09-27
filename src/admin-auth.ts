@@ -5,7 +5,7 @@ export type AdminAuthResult = 'ok' | 'disabled' | 'unauthorized' | 'rate_limited
 const BEARER_PREFIX = 'Bearer ';
 const MAX_FAILED_ADMIN_ATTEMPTS = 5;
 const ADMIN_LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
-// Expired entries are only swept once this many clients are tracked
+// Hard cap on tracked clients so a flood of source IPs can't grow memory without bound
 const MAX_TRACKED_CLIENTS = 10_000;
 
 function digest(value: string): Buffer {
@@ -32,7 +32,11 @@ export interface FailedAttemptLimiter {
 
 // In-process fixed window per client: fine for this single-instance service.
 // ponytail: in-memory and per-process; move to a shared store if the service is ever scaled out.
-export function createFailedAttemptLimiter(maxFailures: number, windowMs: number): FailedAttemptLimiter {
+export function createFailedAttemptLimiter(
+  maxFailures: number,
+  windowMs: number,
+  maxTrackedClients: number = MAX_TRACKED_CLIENTS,
+): FailedAttemptLimiter {
   const failures = new Map<string, { count: number; resetAt: number }>();
 
   return {
@@ -41,12 +45,12 @@ export function createFailedAttemptLimiter(maxFailures: number, windowMs: number
       return entry !== undefined && entry.resetAt > now && entry.count >= maxFailures;
     },
     recordFailure(clientKey, now = Date.now()) {
-      if (failures.size >= MAX_TRACKED_CLIENTS) {
-        for (const [key, entry] of failures) {
-          if (entry.resetAt <= now) failures.delete(key);
-        }
-      }
       const entry = failures.get(clientKey);
+      if (!entry && failures.size >= maxTrackedClients) {
+        // Maps iterate in insertion order, so the first key is the oldest: O(1) eviction
+        const oldest = failures.keys().next().value;
+        if (oldest !== undefined) failures.delete(oldest);
+      }
       failures.set(
         clientKey,
         entry && entry.resetAt > now

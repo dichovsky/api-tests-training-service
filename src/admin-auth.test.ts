@@ -36,3 +36,13 @@ test('requests while updates are disabled do not count as failures', () => {
   assert.equal(authorizeAdmin('Bearer wrong', '10.0.0.1', undefined, limiter), 'disabled');
   assert.equal(limiter.isBlocked('10.0.0.1'), false);
 });
+
+test('tracked clients are capped: the oldest entry is evicted first', () => {
+  const limiter = createFailedAttemptLimiter(1, 60_000, 2);
+  limiter.recordFailure('a', 0);
+  limiter.recordFailure('b', 0);
+  limiter.recordFailure('c', 0);
+  assert.equal(limiter.isBlocked('a', 1), false);
+  assert.equal(limiter.isBlocked('b', 1), true);
+  assert.equal(limiter.isBlocked('c', 1), true);
+});

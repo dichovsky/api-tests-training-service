@@ -304,7 +304,8 @@ const CONFIG_AUTH_ERRORS = {
   rate_limited: { status: 429, code: 'RATE_LIMITED', message: 'Too many failed admin token attempts, try again later' },
 } as const;
 
-// Client key for brute-force limiting; req.ip is the socket address (trust proxy is off)
+// Client key for brute-force limiting; req.ip is the socket address (trust proxy is off).
+// Behind a reverse proxy all clients would share one key: set trust proxy there (see TRAINING_CONFIG.md).
 function requestClientKey(req: Request): string {
   return req.ip ?? 'unknown';
 }
