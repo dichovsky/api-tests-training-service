@@ -59,4 +59,6 @@ mutation {
 }
 ```
 
-A missing or wrong token returns `401` (GraphQL `UNAUTHENTICATED`). Runtime changes are kept in memory only and reset on restart.
+A missing or wrong token returns `401` (GraphQL `UNAUTHENTICATED`). After 5 wrong tokens from the same client IP within 15 minutes, that client gets `429` (GraphQL `RATE_LIMITED`) until the window ends, even with the right token. REST and GraphQL share the count.
+
+> **Reverse proxies:** clients are identified by the socket address (Express `trust proxy` is off). Behind a reverse proxy or TLS terminator every client shares the proxy's address, so 5 bad attempts from anyone would lock out the admin for 15 minutes. If you put a proxy in front, set `app.set('trust proxy', <proxy address>)` in `src/index.ts` so `req.ip` is the real client address. Runtime changes are kept in memory only and reset on restart.

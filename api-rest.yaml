@@ -15,6 +15,8 @@ servers:
   - url: /
     description: Current host
   - url: http://magdich.cloud:3000
+# Public by default; PATCH /training-config overrides this with the admin token
+security: []
 paths:
   /entities:
     get:
@@ -38,39 +40,39 @@ paths:
                     size: 10
                   - id: 2
                     name: "Another Entity"
-      post:
-        tags:
-          - Entities
-        summary: Create a new entity
-        description: Create a new entity with name and optional size
-        operationId: createEntity
-        requestBody:
-          required: true
+    post:
+      tags:
+        - Entities
+      summary: Create a new entity
+      description: Create a new entity with name and optional size
+      operationId: createEntity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityInput'
+            example:
+              name: "New Entity"
+              size: 15
+      responses:
+        '201':
+          description: Entity created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EntityInput'
-              example:
-                name: "New Entity"
-                size: 15
-        responses:
-          '201':
-            description: Entity created successfully
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Entity'
-          '400':
-            description: Invalid input
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                    error:
-                      type: string
-                      example: "Invalid or missing 'name' property"
-  
+                $ref: '#/components/schemas/Entity'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid or missing 'name' property"
+
   /entities/{id}:
     get:
       tags:
@@ -187,7 +189,89 @@ paths:
                     type: string
                     example: "Entity not found"
 
+  /training-config:
+    get:
+      tags:
+        - Training
+      summary: Get training config
+      description: Current training mode config. Readable without authentication.
+      operationId: getTrainingConfig
+      responses:
+        '200':
+          description: Current training config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingConfig'
+
+    patch:
+      tags:
+        - Training
+      summary: Update training config
+      description: |
+        Changes the training config at runtime (in memory only, reset on restart).
+        Requires the TRAINING_ADMIN_TOKEN set on the server as a bearer token;
+        without that variable, updates are disabled. Only known keys with boolean
+        values are accepted; anything else is rejected and leaves the config unchanged.
+      operationId: updateTrainingConfig
+      security:
+        - adminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainingConfigUpdate'
+            example:
+              enabled: true
+              features:
+                skipTrimOnCreate: false
+      responses:
+        '200':
+          description: Updated training config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingConfig'
+        '400':
+          description: Invalid update (unknown key or non-boolean value)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Unknown property 'evil'"
+        '401':
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Missing or invalid admin token"
+        '429':
+          description: Too many failed token attempts from this client (5 within 15 minutes); blocked until the window ends, even with the right token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Too many failed admin token attempts, try again later"
+        '403':
+          description: Runtime updates disabled (no TRAINING_ADMIN_TOKEN on the server)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Runtime training config updates are disabled"
+
 components:
+  securitySchemes:
+    adminToken:
+      type: http
+      scheme: bearer
+      description: Value of TRAINING_ADMIN_TOKEN
   schemas:
     Entity:
       type: object
@@ -234,6 +318,61 @@ components:
         name: "New Entity"
         size: 15
 
+    TrainingConfig:
+      type: object
+      required:
+        - enabled
+        - features
+      properties:
+        enabled:
+          type: boolean
+          description: Whether training mode (intentional bugs) is on
+        features:
+          type: object
+          additionalProperties: false
+          properties:
+            skipTrimOnCreate:
+              type: boolean
+              description: Skip trimming the name on create (30% chance)
+            skipTrimOnUpdate:
+              type: boolean
+              description: Skip trimming the name on update (25% chance)
+          required:
+            - skipTrimOnCreate
+            - skipTrimOnUpdate
+      example:
+        enabled: true
+        features:
+          skipTrimOnCreate: true
+          skipTrimOnUpdate: true
+
+    TrainingConfigUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        features:
+          type: object
+          additionalProperties: false
+          properties:
+            skipTrimOnCreate:
+              type: boolean
+              description: Skip trimming the name on create (30% chance)
+            skipTrimOnUpdate:
+              type: boolean
+              description: Skip trimming the name on update (25% chance)
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+
 tags:
   - name: Entities
     description: Entity management operations
+  - name: Training
+    description: Training mode configuration

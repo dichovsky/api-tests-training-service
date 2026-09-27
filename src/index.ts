@@ -6,7 +6,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { GraphQLError } from 'graphql';
 import { EntityService, EntityInput, TrainingConfigManager } from './entity.service';
-import { checkAdminToken } from './admin-auth';
+import { authorizeAdmin } from './admin-auth';
 import { escapeHtml } from './utils/html-sanitizer';
 
 const PORT = process.env.PORT || 3000;
@@ -301,14 +301,21 @@ app.delete("/entities/:id", (req: Request, res: Response) => {
 const CONFIG_AUTH_ERRORS = {
   disabled: { status: 403, code: 'FORBIDDEN', message: 'Runtime training config updates are disabled' },
   unauthorized: { status: 401, code: 'UNAUTHENTICATED', message: 'Missing or invalid admin token' },
+  rate_limited: { status: 429, code: 'RATE_LIMITED', message: 'Too many failed admin token attempts, try again later' },
 } as const;
+
+// Client key for brute-force limiting; req.ip is the socket address (trust proxy is off).
+// Behind a reverse proxy all clients would share one key: set trust proxy there (see TRAINING_CONFIG.md).
+function requestClientKey(req: Request): string {
+  return req.ip ?? 'unknown';
+}
 
 app.get("/training-config", (req: Request, res: Response) => {
   res.json(TrainingConfigManager.getInstance().getConfig());
 });
 
 app.patch("/training-config", (req: Request, res: Response) => {
-  const auth = checkAdminToken(req.headers.authorization);
+  const auth = authorizeAdmin(req.headers.authorization, requestClientKey(req));
   if (auth !== 'ok') {
     const { status, message } = CONFIG_AUTH_ERRORS[auth];
     return res.status(status).json({ error: message });
@@ -328,6 +335,7 @@ const typeDefs = specFiles.graphql;
 
 interface GraphQLContext {
   authorization?: string;
+  clientKey: string;
 }
 
 const resolvers = {
@@ -342,8 +350,8 @@ const resolvers = {
     trainingConfig: () => TrainingConfigManager.getInstance().getConfig(),
   },
   Mutation: {
-    updateTrainingConfig: (_: any, { config }: { config: unknown }, { authorization }: GraphQLContext) => {
-      const auth = checkAdminToken(authorization);
+    updateTrainingConfig: (_: any, { config }: { config: unknown }, { authorization, clientKey }: GraphQLContext) => {
+      const auth = authorizeAdmin(authorization, clientKey);
       if (auth !== 'ok') {
         const { code, message } = CONFIG_AUTH_ERRORS[auth];
         throw new GraphQLError(message, { extensions: { code } });
@@ -404,7 +412,7 @@ async function startServer() {
   await server.start();
 
   app.use('/graphql', expressMiddleware(server, {
-    context: async ({ req }) => ({ authorization: req.headers.authorization }),
+    context: async ({ req }) => ({ authorization: req.headers.authorization, clientKey: requestClientKey(req) }),
   }));
 
   app.listen(PORT, () => {

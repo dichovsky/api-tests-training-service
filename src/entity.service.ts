@@ -234,14 +234,4 @@ export class EntityService {
     const [deleted] = this.entities.splice(idx, 1);
     return { entity: deleted };
   }
-
-  // For testing purposes
-  reset(): void {
-    this.entities = [];
-    this.nextId = 1;
-  }
-
-  getTrainingMode(): boolean {
-    return this.trainingMode;
-  }
 }
