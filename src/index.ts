@@ -4,15 +4,16 @@ import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin
 import { expressMiddleware } from '@as-integrations/express4';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { EntityService, EntityInput } from './entity.service';
+import { GraphQLError } from 'graphql';
+import { EntityService, EntityInput, TrainingConfigManager } from './entity.service';
+import { checkAdminToken } from './admin-auth';
 import { escapeHtml } from './utils/html-sanitizer';
 
 const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(express.json());
 
-const trainingMode = process.env.TRAINING_MODE === 'true';
-const entityService = new EntityService(trainingMode);
+const entityService = new EntityService();
 
 // Cache spec files at startup to avoid blocking I/O
 const specFiles = {
@@ -296,8 +297,38 @@ app.delete("/entities/:id", (req: Request, res: Response) => {
   res.json(result.entity);
 });
 
+// Training config REST endpoints
+const CONFIG_AUTH_ERRORS = {
+  disabled: { status: 403, code: 'FORBIDDEN', message: 'Runtime training config updates are disabled' },
+  unauthorized: { status: 401, code: 'UNAUTHENTICATED', message: 'Missing or invalid admin token' },
+} as const;
+
+app.get("/training-config", (req: Request, res: Response) => {
+  res.json(TrainingConfigManager.getInstance().getConfig());
+});
+
+app.patch("/training-config", (req: Request, res: Response) => {
+  const auth = checkAdminToken(req.headers.authorization);
+  if (auth !== 'ok') {
+    const { status, message } = CONFIG_AUTH_ERRORS[auth];
+    return res.status(status).json({ error: message });
+  }
+
+  const result = TrainingConfigManager.getInstance().updateConfig(req.body);
+  if (result.errors) {
+    return res.status(400).json({ error: result.errors[0].message });
+  }
+
+  console.log(`[${new Date().toISOString()}] PATCH /training-config`, result.config);
+  res.json(result.config);
+});
+
 // GraphQL setup
 const typeDefs = specFiles.graphql;
+
+interface GraphQLContext {
+  authorization?: string;
+}
 
 const resolvers = {
   Query: {
@@ -307,9 +338,23 @@ const resolvers = {
       if (isNaN(idNum)) return null;
       return entityService.getById(idNum);
     },
-    trainingMode: () => entityService.getTrainingMode(),
+    trainingMode: () => TrainingConfigManager.getInstance().getConfig().enabled,
+    trainingConfig: () => TrainingConfigManager.getInstance().getConfig(),
   },
   Mutation: {
+    updateTrainingConfig: (_: any, { config }: { config: unknown }, { authorization }: GraphQLContext) => {
+      const auth = checkAdminToken(authorization);
+      if (auth !== 'ok') {
+        const { code, message } = CONFIG_AUTH_ERRORS[auth];
+        throw new GraphQLError(message, { extensions: { code } });
+      }
+      const result = TrainingConfigManager.getInstance().updateConfig(config);
+      if (result.errors) {
+        throw new GraphQLError(result.errors[0].message, { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+      console.log(`[${new Date().toISOString()}] GraphQL updateTrainingConfig`, result.config);
+      return result.config;
+    },
     createEntity: (_: any, { input }: { input: EntityInput }) => {
       const result = entityService.create(input);
       if (result.errors) {
@@ -346,7 +391,7 @@ const resolvers = {
 };
 
 async function startServer() {
-  const server = new ApolloServer({
+  const server = new ApolloServer<GraphQLContext>({
     typeDefs,
     resolvers,
     // Never leak stack traces (file paths) in responses, whatever NODE_ENV is
@@ -358,13 +403,15 @@ async function startServer() {
 
   await server.start();
 
-  app.use('/graphql', expressMiddleware(server));
+  app.use('/graphql', expressMiddleware(server, {
+    context: async ({ req }) => ({ authorization: req.headers.authorization }),
+  }));
 
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`REST API: http://localhost:${PORT}/entities`);
     console.log(`GraphQL Playground: http://localhost:${PORT}/graphql`);
-    console.log(`Training mode: ${trainingMode ? 'ENABLED' : 'DISABLED'}`);
+    console.log(`Training mode: ${TrainingConfigManager.getInstance().getConfig().enabled ? 'ENABLED' : 'DISABLED'}`);
   });
 }
 

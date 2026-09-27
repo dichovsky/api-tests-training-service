@@ -14,14 +14,36 @@ input EntityInput {
   size: Float
 }
 
+type TrainingFeatures {
+  skipTrimOnCreate: Boolean!
+  skipTrimOnUpdate: Boolean!
+}
+
+type TrainingConfig {
+  enabled: Boolean!
+  features: TrainingFeatures!
+}
+
+input TrainingFeaturesInput {
+  skipTrimOnCreate: Boolean
+  skipTrimOnUpdate: Boolean
+}
+
+input TrainingConfigInput {
+  enabled: Boolean
+  features: TrainingFeaturesInput
+}
+
 type Query {
   entities: [Entity!]!
   entity(id: ID!): Entity
   trainingMode: Boolean!
+  trainingConfig: TrainingConfig!
 }
 
 type Mutation {
   createEntity(input: EntityInput!): Entity!
   updateEntity(id: ID!, input: EntityInput!): Entity!
   deleteEntity(id: ID!): Entity!
+  updateTrainingConfig(config: TrainingConfigInput!): TrainingConfig!
 }

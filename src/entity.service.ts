@@ -14,13 +14,127 @@ export interface ValidationError {
   message: string;
 }
 
+const TRAINING_FEATURES = ['skipTrimOnCreate', 'skipTrimOnUpdate'] as const;
+type TrainingFeature = typeof TRAINING_FEATURES[number];
+
+export interface TrainingConfig {
+  enabled: boolean;
+  features: Record<TrainingFeature, boolean>;
+}
+
+interface TrainingConfigUpdate {
+  enabled?: boolean;
+  features?: Partial<Record<TrainingFeature, boolean>>;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isTrainingFeature(key: string): key is TrainingFeature {
+  return (TRAINING_FEATURES as readonly string[]).includes(key);
+}
+
+function validateConfigUpdate(input: unknown): ValidationError[] {
+  if (!isPlainObject(input)) {
+    return [{ field: 'config', message: 'Config update must be an object' }];
+  }
+
+  const errors: ValidationError[] = [];
+  for (const key of Object.keys(input)) {
+    if (key !== 'enabled' && key !== 'features') {
+      errors.push({ field: key, message: `Unknown property '${key}'` });
+    }
+  }
+
+  if ('enabled' in input && typeof input.enabled !== 'boolean') {
+    errors.push({ field: 'enabled', message: "'enabled' must be a boolean" });
+  }
+
+  if ('features' in input) {
+    if (!isPlainObject(input.features)) {
+      errors.push({ field: 'features', message: "'features' must be an object" });
+    } else {
+      for (const [key, value] of Object.entries(input.features)) {
+        if (!isTrainingFeature(key)) {
+          errors.push({ field: `features.${key}`, message: `Unknown feature '${key}'` });
+        } else if (typeof value !== 'boolean') {
+          errors.push({ field: `features.${key}`, message: `'features.${key}' must be a boolean` });
+        }
+      }
+    }
+  }
+
+  return errors;
+}
+
+export class TrainingConfigManager {
+  private static instance: TrainingConfigManager;
+  private config: TrainingConfig;
+
+  private constructor() {
+    this.config = this.loadFromEnv();
+  }
+
+  static getInstance(): TrainingConfigManager {
+    if (!TrainingConfigManager.instance) {
+      TrainingConfigManager.instance = new TrainingConfigManager();
+    }
+    return TrainingConfigManager.instance;
+  }
+
+  getConfig(): TrainingConfig {
+    return { ...this.config, features: { ...this.config.features } };
+  }
+
+  updateConfig(input: unknown): { config?: TrainingConfig; errors?: ValidationError[] } {
+    const errors = validateConfigUpdate(input);
+    if (errors.length > 0) {
+      return { errors };
+    }
+
+    const update = input as TrainingConfigUpdate;
+    this.config = {
+      enabled: update.enabled ?? this.config.enabled,
+      features: { ...this.config.features, ...update.features },
+    };
+    return { config: this.getConfig() };
+  }
+
+  private loadFromEnv(): TrainingConfig {
+    return {
+      enabled: process.env.TRAINING_MODE === 'true',
+      features: {
+        skipTrimOnCreate: process.env.TRAINING_SKIP_TRIM_CREATE !== 'false',
+        skipTrimOnUpdate: process.env.TRAINING_SKIP_TRIM_UPDATE !== 'false',
+      },
+    };
+  }
+}
+
 export class EntityService {
   private entities: Entity[] = [];
   private nextId = 1;
-  private trainingMode: boolean;
+  private configManager: TrainingConfigManager;
 
-  constructor(trainingMode = false) {
-    this.trainingMode = trainingMode;
+  constructor() {
+    this.configManager = TrainingConfigManager.getInstance();
+  }
+
+  private get config(): TrainingConfig {
+    return this.configManager.getConfig();
+  }
+
+  private get trainingMode(): boolean {
+    return this.config.enabled;
+  }
+
+  private shouldSkipTrimCreate(): boolean {
+    return this.trainingMode && this.config.features.skipTrimOnCreate;
+  }
+
+  private shouldSkipTrimUpdate(): boolean {
+    return this.trainingMode && this.config.features.skipTrimOnUpdate;
   }
 
   private sanitizeName(name: string): string {
@@ -54,7 +168,7 @@ export class EntityService {
     let name = this.sanitizeName(input.name);
     
     // Training mode bug injection: sometimes skip trimming
-    if (this.trainingMode && Math.random() < 0.3) {
+    if (this.shouldSkipTrimCreate() && Math.random() < 0.3) {
       // Intentionally skip trimming to create bug for trainees
       name = input.name;
     }
@@ -94,7 +208,7 @@ export class EntityService {
     let name = this.sanitizeName(input.name);
     
     // Training mode bug: skip trimming on update
-    if (this.trainingMode && Math.random() < 0.25) {
+    if (this.shouldSkipTrimUpdate() && Math.random() < 0.25) {
       name = input.name;
     }
 
