@@ -1,9 +1,11 @@
 # Local and Proxmox validation — 2026-09-27
 
 Installation, update, controlled-failure recovery, process recovery and guest
-reboot checks passed. Apollo Sandbox's browser UI remains unverified; its
-embedded frame was blank in the available Codex in-app browser in both environments.
-The REST and GraphQL HTTP suites passed.
+reboot checks passed. A follow-up Google Chrome check also verified Apollo
+Sandbox against both the local `npm run start` process and the deployed service:
+the UI rendered and returned HTTP 200 with empty entities and training mode off.
+The earlier blank frame was observed in Codex's in-app browser; no application
+change was needed. The REST and GraphQL HTTP suites passed.
 
 ## Retained service and source
 
@@ -13,7 +15,9 @@ The REST and GraphQL HTTP suites passed.
 - Installation: `/opt/api-tests-training-service`; unit: `api-tests-training-service`.
 - Tested final implementation: `15c3632038aed1746f1eb2ed40352f6dfcffd242` on
   `test/proxmox-deployment-validation`. Report/plan commits may follow without
-  changing the tested implementation. The fixes have not been merged to `main`.
+  changing the tested implementation. This report records pre-merge acceptance;
+  subsequent `main` deployment evidence is saved in
+  `validation-results/proxmox/post-merge-main-summary.json` when that step completes.
 - Private GitHub source uses the owner-approved repository-scoped, read-only SSH
   deploy key. Its private half remains in this guest. The admin token is retained
   in `/etc/api-tests-training-service.env`, root-owned, mode 600.
@@ -51,7 +55,7 @@ This does not certify future mutable upstream versions or package downloads.
 | Final source update to `15c3632` | Passed; full suite matched |
 | Process crash and container reboot | Passed; systemd recovered and auto-started, runtime entities/IDs/flags/lockout reset, token preserved, full suite matched after each |
 | Browser Swagger | Rendered locally and on Proxmox; executed `GET /entities`, receiving 200 and `[]` |
-| Browser Apollo Sandbox | **Unverified**: blank embedded frame; no successful UI query. HTTP queries/mutations and introspection passed |
+| Browser Apollo Sandbox | Passed in Google Chrome locally and on Proxmox: rendered UI, executed `{ entities { id } trainingMode }`, HTTP 200 and expected response. The in-app browser had shown a blank frame |
 
 The full suite covers CRUD, invalid inputs, zero/null/omitted sizes, replacement,
 shared REST/GraphQL state, training settings and intentional defect flags,
@@ -131,6 +135,7 @@ the Git-ignored `validation-results/` directory:
   each injected failure and recovery, and comparison reports.
 - `artifact-manifest.json` and `final-artifact-manifest.json`: script, suite and lockfile hashes during execution and at completion.
 - `proxmox/final-guest.json` and `proxmox/final-cluster.json`: final provenance and health.
+- `post-merge/browser-check.json`: follow-up Chrome verification resolving the original UI limitation.
 
 Cluster-specific orchestration is retained in the sibling `proxmox` workspace:
 `scripts/api_training_validation.py`, `scripts/api_training_scenarios.py`,

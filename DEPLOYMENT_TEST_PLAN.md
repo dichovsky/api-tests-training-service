@@ -1,7 +1,7 @@
 # Local baseline and Proxmox deployment validation
 
 Status: execution finished. Local and deployed functional/lifecycle checks passed;
-the Apollo Sandbox browser UI remains unverified. Results are retained under
+follow-up Chrome checks also verified the Apollo Sandbox UI in both environments. Results are retained under
 `validation-results/` and summarized in [validation/REPORT.md](validation/REPORT.md).
 
 ## Goal and agreed decisions
