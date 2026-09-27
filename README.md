@@ -110,7 +110,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-trai
 
 **Features:**
 - Unprivileged LXC container
-- Automatic Node.js 20 installation
+- Automatic Node.js 24 installation
 - Git-based updates with `update_script()`
 - Systemd service with auto-restart
 - Configurable port and training mode

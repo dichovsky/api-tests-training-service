@@ -16,9 +16,9 @@ if ! command -v curl &> /dev/null || ! command -v git &> /dev/null; then
     apt-get install -y curl ca-certificates git
 fi
 
-# Install Node.js 20 if not present
-if ! command -v node &> /dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+# Install Node.js 24 (LTS) if missing or older; Node 20 is EOL
+if ! command -v node &> /dev/null || (( $(node -p 'process.versions.node.split(".")[0]') < 24 )); then
+    curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
     apt-get install -y nodejs
 fi
 
