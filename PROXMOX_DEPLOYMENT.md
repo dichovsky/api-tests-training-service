@@ -51,6 +51,18 @@ npm run build
 systemctl restart api-tests-training-service
 ```
 
+### Training Config Admin Token
+
+The install generates a random `TRAINING_ADMIN_TOKEN` inside the container and stores it in `/etc/api-tests-training-service.env` (root-only, mode 600). The service loads it via `EnvironmentFile=`, and reinstalls keep the existing token. It authorizes runtime changes through `PATCH /training-config` and the GraphQL `updateTrainingConfig` mutation.
+
+Read it from the Proxmox host:
+
+```bash
+pct exec <container_id> -- cat /etc/api-tests-training-service.env
+```
+
+To rotate it, replace the value in that file and run `systemctl restart api-tests-training-service`.
+
 ### Service Management
 
 ```bash
