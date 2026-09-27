@@ -153,6 +153,10 @@ exit "${FIXTURE_EXIT:-0}"
         engine.mkdir(parents=True)
         staged_output = self.base / 'native-installer'
         engine.joinpath('build.func').write_text('''
+# Native bootstrap probes for optional Incus before it enables catch_errors.
+# A false probe must not terminate the wrapper before initialization completes.
+optional_platform_probe() { return 1; }
+optional_platform_probe
 header_info() { :; }
 variables() { NSAPP=apiteststrainingservice; var_install="$NSAPP-install"; }
 color() { :; }

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -Ee -o pipefail
+# The Community Scripts loader contains optional probes that return nonzero.
+# It enables errexit itself through catch_errors after those probes initialize.
+set -E -o pipefail
 
 # Copyright (c) 2025 Igor Magdich
 # License: MIT | https://github.com/dichovsky/api-tests-training-service/blob/main/LICENSE
@@ -11,7 +13,10 @@ _cs_boot="${COMMUNITY_SCRIPTS_CORE_DIR:-$(dirname "${BASH_SOURCE[0]}")/../../cor
 if [[ -r "$_cs_boot" ]]; then
     source "$_cs_boot"
 else
-    _cs_engine="$(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/main}/core/build.func")"
+    if ! _cs_engine="$(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/main}/core/build.func")"; then
+        echo 'Could not download Community Scripts engine' >&2
+        exit 1
+    fi
     [[ -n "$_cs_engine" ]] || { echo 'Community Scripts engine download was empty' >&2; exit 1; }
     source /dev/stdin <<< "$_cs_engine"
     unset _cs_engine
