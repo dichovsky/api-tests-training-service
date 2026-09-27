@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import { ApolloServer } from '@apollo/server';
+import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import { expressMiddleware } from '@as-integrations/express4';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -329,17 +330,6 @@ interface GraphQLContext {
   authorization?: string;
 }
 
-interface CreateEntityArgs {
-  name: string;
-  size?: number;
-}
-
-interface UpdateEntityArgs {
-  id: number;
-  name: string;
-  size?: number;
-}
-
 const resolvers = {
   Query: {
     entities: (): any[] => entityService.getAll(),
@@ -406,6 +396,9 @@ async function startServer() {
     resolvers,
     // Never leak stack traces (file paths) in responses, whatever NODE_ENV is
     includeStacktraceInErrorResponses: false,
+    // Trainees explore the schema, so keep introspection and the Sandbox on even with NODE_ENV=production
+    introspection: true,
+    plugins: [ApolloServerPluginLandingPageLocalDefault({ embed: true })],
   });
 
   await server.start();
@@ -422,4 +415,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch((error: unknown) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
+});
