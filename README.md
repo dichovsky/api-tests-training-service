@@ -7,6 +7,8 @@ This project is a Node.js service built with TypeScript, designed to provide a p
 - [Installation](#installation)
 - [Usage](#usage)
 - [Features](#features)
+- [API Endpoints](#api-endpoints)
+- [GraphQL](#graphql)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -28,7 +30,13 @@ To start the service, run:
 npm start
 ```
 
-The service will launch the API testing platform, accessible at `http://localhost:3000` (or the port specified in your configuration). You can use this endpoint to trigger, monitor, and manage API test runs.
+The service will launch the API testing platform, accessible at `http://localhost:3000` (or the port specified in your configuration).
+
+To enable training mode with intentional bugs for trainees to find:
+
+```bash
+TRAINING_MODE=true npm start
+```
 
 ## Features
 
@@ -36,6 +44,59 @@ The service will launch the API testing platform, accessible at `http://localhos
 - Execute automated API tests
 - Monitor test results and logs
 - Easily extendable for custom test logic
+- **REST API** for CRUD operations on entities
+- **GraphQL API** for flexible querying and mutations
+- **Training mode** with intentional bugs for learning
+
+## API Endpoints
+
+### REST API
+
+- `GET /entities` - Get all entities
+- `GET /entities/:id` - Get entity by ID
+- `POST /entities` - Create entity
+- `PUT /entities/:id` - Update entity
+- `DELETE /entities/:id` - Delete entity
+
+### GraphQL API
+
+- `POST /graphql` - GraphQL endpoint with Apollo Sandbox
+
+**Queries:**
+- `entities` - Get all entities
+- `entity(id: ID!)` - Get entity by ID
+- `trainingMode` - Check if training mode is enabled
+
+**Mutations:**
+- `createEntity(input: EntityInput!)` - Create entity
+- `updateEntity(id: ID!, input: EntityInput!)` - Update entity
+- `deleteEntity(id: ID!)` - Delete entity
+
+## GraphQL
+
+The GraphQL endpoint provides a flexible interface for trainees to learn GraphQL queries and mutations. Access the interactive playground at `http://localhost:3000/graphql`.
+
+Example query:
+```graphql
+query {
+  entities {
+    id
+    name
+    size
+  }
+}
+```
+
+Example mutation:
+```graphql
+mutation {
+  createEntity(input: {name: "Test", size: 10}) {
+    id
+    name
+    size
+  }
+}
+```
 
 ## Contributing
 

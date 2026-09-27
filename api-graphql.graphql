@@ -1,0 +1,27 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+type Entity {
+  id: ID!
+  name: String!
+  size: Float
+}
+
+input EntityInput {
+  name: String!
+  size: Float
+}
+
+type Query {
+  entities: [Entity!]!
+  entity(id: ID!): Entity
+  trainingMode: Boolean!
+}
+
+type Mutation {
+  createEntity(input: EntityInput!): Entity!
+  updateEntity(id: ID!, input: EntityInput!): Entity!
+  deleteEntity(id: ID!): Entity!
+}

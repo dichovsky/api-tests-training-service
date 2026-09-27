@@ -1,0 +1,230 @@
+openapi: 3.1.0
+info:
+  title: Entities API - REST
+  version: 1.2.0
+  description: |
+    REST API for managing entities.
+    
+    This API provides CRUD operations for entities with the following properties:
+    - id: unique identifier (auto-generated)
+    - name: string, required, trimmed
+    - size: positive number, optional
+    
+    All endpoints follow REST conventions and return JSON responses.
+servers:
+  - url: /
+    description: Current host
+  - url: http://magdich.cloud:3000
+paths:
+  /entities:
+    get:
+      tags:
+        - Entities
+      summary: Get all entities
+      description: Retrieve a list of all stored entities
+      operationId: getAllEntities
+      responses:
+        '200':
+          description: List of entities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Entity'
+                example:
+                  - id: 1
+                    name: "Sample Entity"
+                    size: 10
+                  - id: 2
+                    name: "Another Entity"
+      post:
+        tags:
+          - Entities
+        summary: Create a new entity
+        description: Create a new entity with name and optional size
+        operationId: createEntity
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityInput'
+              example:
+                name: "New Entity"
+                size: 15
+        responses:
+          '201':
+            description: Entity created successfully
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Entity'
+          '400':
+            description: Invalid input
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    error:
+                      type: string
+                      example: "Invalid or missing 'name' property"
+  
+  /entities/{id}:
+    get:
+      tags:
+        - Entities
+      summary: Get entity by ID
+      description: Retrieve a single entity by its unique identifier
+      operationId: getEntityById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the entity
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Entity found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+        '404':
+          description: Entity not found
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Entity not found"
+    
+    put:
+      tags:
+        - Entities
+      summary: Update entity
+      description: Replace an existing entity's name and size (omitting size removes it)
+      operationId: updateEntity
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the entity to update
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityInput'
+            example:
+              name: "Updated Entity"
+              size: 20
+      responses:
+        '200':
+          description: Entity updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid or missing 'name' property"
+        '404':
+          description: Entity not found
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Entity not found"
+    
+    delete:
+      tags:
+        - Entities
+      summary: Delete entity
+      description: Delete an entity by its unique identifier
+      operationId: deleteEntity
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the entity to delete
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Entity deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+        '404':
+          description: Entity not found
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Entity not found"
+
+components:
+  schemas:
+    Entity:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          readOnly: true
+          description: Unique identifier auto-generated by the service
+          example: 1
+        name:
+          type: string
+          description: Name of the entity, leading/trailing whitespace is trimmed
+          example: "Sample Entity"
+          minLength: 1
+        size:
+          type: number
+          description: Optional positive number representing size
+          example: 10
+          minimum: 0
+      example:
+        id: 1
+        name: "Sample Entity"
+        size: 10
+    
+    EntityInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Name of the entity, must be non-empty after trimming
+          example: "New Entity"
+          minLength: 1
+        size:
+          type: number
+          description: Optional positive number
+          example: 15
+          minimum: 0
+      example:
+        name: "New Entity"
+        size: 15
+
+tags:
+  - name: Entities
+    description: Entity management operations
