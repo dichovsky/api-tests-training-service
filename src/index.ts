@@ -305,7 +305,7 @@ app.delete("/entities/:id", (req: Request, res: Response) => {
 // Training config REST endpoints: mentors only, deliberately absent from the served specs and GraphQL.
 // See mentor/TRAINING_CONFIG.md.
 const CONFIG_AUTH_ERRORS = {
-  unauthorized: { status: 401, message: 'Missing or invalid admin token' },
+  unauthorized: { status: 401, message: 'Invalid admin token' },
   rate_limited: { status: 429, message: 'Too many failed admin token attempts, try again later' },
 } as const;
 

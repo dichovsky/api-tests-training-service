@@ -82,7 +82,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
           example:
-            error: "Missing or invalid admin token"
+            error: "Invalid admin token"
     Hidden:
       description: No Authorization header or no TRAINING_ADMIN_TOKEN on the server; Express default HTML 404, not counted
     RateLimited:

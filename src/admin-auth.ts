@@ -21,7 +21,7 @@ export function checkAdminToken(
   if (!token || !authorization) {
     return 'hidden';
   }
-  const provided = authorization?.startsWith(BEARER_PREFIX) ? authorization.slice(BEARER_PREFIX.length) : '';
+  const provided = authorization.startsWith(BEARER_PREFIX) ? authorization.slice(BEARER_PREFIX.length) : '';
   // Hash both sides so the comparison is constant-time regardless of length
   return timingSafeEqual(digest(provided), digest(token)) ? 'ok' : 'unauthorized';
 }

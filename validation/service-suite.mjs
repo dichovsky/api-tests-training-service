@@ -117,11 +117,15 @@ export async function runSuite(options = {}) {
   async function patchConfig(config) {
     return json(await request('PATCH', '/training-config', config, { auth: bearer }));
   }
-  // Hidden means byte-for-byte the Express default 404 for an unknown path.
+  // Hidden means the same response as an unknown sibling path: status, content type, and body (path substituted).
   async function assertHidden(method, auth) {
-    const response = await request(method, '/training-config', method === 'PATCH' ? { enabled: true } : undefined, { auth });
+    const body = method === 'PATCH' ? { enabled: true } : undefined;
+    const response = await request(method, '/training-config', body, { auth });
+    const unknown = await request(method, '/training-config-unknown', body, { auth });
     assert.equal(response.status, 404);
-    assert.match(response.text, new RegExp('Cannot ' + method + ' /training-config'));
+    assert.equal(unknown.status, 404);
+    assert.equal(response.headers['content-type'], unknown.headers['content-type']);
+    assert.equal(response.text, unknown.text.replace('/training-config-unknown', '/training-config'));
   }
   const trainingLeak = /training[ _-]?(mode|config|features)|trainingMode|TRAINING_|intentional|skipTrim/i;
   async function createRest(input) {
