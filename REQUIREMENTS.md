@@ -39,9 +39,3 @@ The service should support both REST and GraphQL interfaces simultaneously
     - REST endpoints at /entities
     - GraphQL endpoint at /graphql
     - Both should use shared business logic
-
-## Req-10
-The service should support training mode for identifying issues
-    - Training mode can be enabled via TRAINING_MODE environment variable
-    - In training mode, service may introduce intentional bugs for trainees to find
-    - Training mode status should be queryable via GraphQL

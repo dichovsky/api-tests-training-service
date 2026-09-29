@@ -208,7 +208,7 @@ python3 scripts/test-deployment-scripts.py
 
 ### Training Config Admin Token
 
-The install generates a random `TRAINING_ADMIN_TOKEN` inside the container and stores it in `/etc/api-tests-training-service.env` (root-only, mode 600). The service loads it via `EnvironmentFile=`, and reinstalls keep the existing token. It authorizes runtime changes through `PATCH /training-config` and the GraphQL `updateTrainingConfig` mutation.
+The install generates a random `TRAINING_ADMIN_TOKEN` inside the container and stores it in `/etc/api-tests-training-service.env` (root-only, mode 600). The service loads it via `EnvironmentFile=`, and reinstalls keep the existing token. It authorizes mentor-only reads and runtime changes through `GET`/`PATCH /training-config` (REST only; see `mentor/TRAINING_CONFIG.md`).
 
 Read it from the Proxmox host:
 

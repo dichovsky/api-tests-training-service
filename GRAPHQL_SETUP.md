@@ -14,13 +14,12 @@ Added GraphQL endpoint for training purposes alongside existing REST API.
 - `src/entity.service.ts` - Shared service layer with validation and sanitization
   - Extracted business logic from REST routes
   - Shared validation used by both REST and GraphQL
-  - Training mode support with intentional bug injection
   - Methods: create, getAll, getById, update, delete
 
 ### 3. Updated `src/index.ts`
 - Refactored REST routes to use `EntityService`
 - Added GraphQL schema with SDL:
-  - Query: `entities`, `entity(id)`, `trainingMode`
+  - Query: `entities`, `entity(id)`
   - Mutation: `createEntity`, `updateEntity`, `deleteEntity`
 - Apollo Server mounted at `/graphql`
 - Both REST (`/entities`) and GraphQL coexist
@@ -42,7 +41,6 @@ input EntityInput {
 type Query {
   entities: [Entity!]!
   entity(id: ID!): Entity
-  trainingMode: Boolean!
 }
 
 type Mutation {
@@ -51,16 +49,6 @@ type Mutation {
   deleteEntity(id: ID!): Entity!
 }
 ```
-
-## Training Mode
-Enable with `TRAINING_MODE=true` environment variable:
-```bash
-TRAINING_MODE=true npm start
-```
-
-In training mode, service randomly introduces bugs:
-- Skips name trimming (30% chance on create, 25% on update)
-- Helps trainees identify edge cases and validation issues
 
 ## Testing
 

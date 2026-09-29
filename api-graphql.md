@@ -47,12 +47,6 @@ type Query {
   Returns null if entity not found
   """
   entity(id: ID!): Entity
-  
-  """
-  Check if training mode is enabled
-  Training mode may introduce intentional bugs for learning purposes
-  """
-  trainingMode: Boolean!
 }
 
 """
@@ -137,22 +131,6 @@ Response:
       "name": "Sample Entity",
       "size": 10
     }
-  }
-}
-```
-
-#### Check training mode
-```graphql
-query {
-  trainingMode
-}
-```
-
-Response:
-```json
-{
-  "data": {
-    "trainingMode": false
   }
 }
 ```
@@ -253,12 +231,6 @@ Common errors:
 - `Invalid 'size' property data type` - size must be a number
 - `'size' must be a non-negative number` - size cannot be negative
 - `Entity not found` - requested entity ID does not exist
-
-## Training Mode
-
-When `TRAINING_MODE=true` environment variable is set:
-- Service may randomly skip name trimming (30% create, 25% update)
-- Use `trainingMode` query to check status
 
 ## Integration Notes
 

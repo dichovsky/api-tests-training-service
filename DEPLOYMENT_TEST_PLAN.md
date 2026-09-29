@@ -89,8 +89,8 @@ systemd starts/restarts the service, confirm sustained readiness beyond its
 | Replacement | Omitting size on replacement removes the prior value; null size is treated as absent |
 | GraphQL | Queries and mutations; schema validation; missing/invalid IDs; meaningful errors; no leaked stack traces; introspection remains available in production |
 | Shared state | Create through REST, read/update through GraphQL, verify/delete through REST, and exercise the reverse direction |
-| Training configuration | Public reads; authorized partial updates across both APIs; invalid/unknown fields rejected without partial mutation; startup flags and runtime toggles respected |
-| Admin authorization | No-token startup disables writes; missing/wrong token rejected; correct token works; five failed attempts share a lockout across REST and GraphQL; reads remain available |
+| Training configuration | Mentor-only REST reads and partial updates with the admin token; absent from GraphQL and every served spec; invalid/unknown fields rejected without partial mutation; startup flags and runtime toggles respected |
+| Admin authorization | No-token startup or a missing Authorization header returns the Express default 404 and is never counted; wrong token rejected; correct token works; five failed attempts across GET and PATCH lock out the client; entity reads remain available |
 | Training behavior | Disabled mode always trims; enabled mode with both defect flags off always trims; deterministic unit checks exercise create and update defects; enabled random behavior permits only the documented outcomes |
 | Documentation | Root page, all API-spec pages/downloads, legacy redirect, and deployed assets match the tested revision; browser checks render Swagger and GraphQL Sandbox and execute a request |
 | Restart | Entities and ID sequence reset; runtime flags return to startup settings; auth lockout clears; both APIs recover |

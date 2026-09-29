@@ -84,14 +84,14 @@ for (const operation of ['create', 'update'] as const) {
   });
 }
 
-test('config updates are disabled when no admin token is configured', () => {
-  assert.equal(checkAdminToken('Bearer anything', undefined), 'disabled');
-  assert.equal(checkAdminToken('Bearer ', ''), 'disabled');
+test('config access is hidden when no admin token is configured', () => {
+  assert.equal(checkAdminToken('Bearer anything', undefined), 'hidden');
+  assert.equal(checkAdminToken('Bearer ', ''), 'hidden');
 });
 
 test('config updates require the exact bearer token', () => {
   assert.equal(checkAdminToken('Bearer s3cret', 's3cret'), 'ok');
-  assert.equal(checkAdminToken(undefined, 's3cret'), 'unauthorized');
+  assert.equal(checkAdminToken(undefined, 's3cret'), 'hidden');
   assert.equal(checkAdminToken('Bearer wrong', 's3cret'), 'unauthorized');
   assert.equal(checkAdminToken('s3cret', 's3cret'), 'unauthorized');
   assert.equal(checkAdminToken('Bearer s3cret2', 's3cret'), 'unauthorized');

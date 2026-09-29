@@ -33,12 +33,6 @@ npm start
 
 The service will launch the API testing platform, accessible at `http://localhost:3000` (or the port specified in your configuration).
 
-To enable training mode with intentional bugs for trainees to find:
-
-```bash
-TRAINING_MODE=true npm start
-```
-
 ## Features
 
 - Create and manage API test scenarios
@@ -47,7 +41,6 @@ TRAINING_MODE=true npm start
 - Easily extendable for custom test logic
 - **REST API** for CRUD operations on entities
 - **GraphQL API** for flexible querying and mutations
-- **Training mode** with intentional bugs for learning
 - **Proxmox CT script** for easy home lab deployment
 
 ## API Endpoints
@@ -67,7 +60,6 @@ TRAINING_MODE=true npm start
 **Queries:**
 - `entities` - Get all entities
 - `entity(id: ID!)` - Get entity by ID
-- `trainingMode` - Check if training mode is enabled
 
 **Mutations:**
 - `createEntity(input: EntityInput!)` - Create entity
@@ -113,7 +105,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-trai
 - Automatic Node.js 24 installation
 - Git-based updates with `update_script()`
 - Systemd service with auto-restart
-- Configurable port and training mode
+- Configurable port
 
 **Update the service:**
 ```bash
@@ -122,6 +114,10 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/dichovsky/api-tests-trai
 ```
 
 The service will automatically pull latest code, rebuild TypeScript, and restart.
+
+## Mentors
+
+Mentor/operator notes: [`mentor/`](mentor/).
 
 ## Contributing
 
