@@ -4,7 +4,6 @@ import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin
 import { expressMiddleware } from '@as-integrations/express4';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { GraphQLError } from 'graphql';
 import { EntityService, EntityInput, TrainingConfigManager } from './entity.service';
 import { authorizeAdmin } from './admin-auth';
 import { escapeHtml } from './utils/html-sanitizer';
@@ -303,46 +302,46 @@ app.delete("/entities/:id", (req: Request, res: Response) => {
   res.json(result.entity);
 });
 
-// Training config REST endpoints
+// Training config REST endpoints: mentors only, deliberately absent from the served specs and GraphQL.
+// See mentor/TRAINING_CONFIG.md.
 const CONFIG_AUTH_ERRORS = {
-  disabled: { status: 403, code: 'FORBIDDEN', message: 'Runtime training config updates are disabled' },
-  unauthorized: { status: 401, code: 'UNAUTHENTICATED', message: 'Missing or invalid admin token' },
-  rate_limited: { status: 429, code: 'RATE_LIMITED', message: 'Too many failed admin token attempts, try again later' },
+  unauthorized: { status: 401, message: 'Invalid admin token' },
+  rate_limited: { status: 429, message: 'Too many failed admin token attempts, try again later' },
 } as const;
 
 // Client key for brute-force limiting; req.ip is the socket address (trust proxy is off).
-// Behind a reverse proxy all clients would share one key: set trust proxy there (see TRAINING_CONFIG.md).
+// Behind a reverse proxy all clients would share one key: set trust proxy there (see mentor/TRAINING_CONFIG.md).
 function requestClientKey(req: Request): string {
   return req.ip ?? 'unknown';
 }
 
-app.get("/training-config", (req: Request, res: Response) => {
-  res.json(TrainingConfigManager.getInstance().getConfig());
-});
-
-app.patch("/training-config", (req: Request, res: Response) => {
+// Hidden requests fall through to Express's default 404, identical to any unknown path.
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const auth = authorizeAdmin(req.headers.authorization, requestClientKey(req));
-  if (auth !== 'ok') {
-    const { status, message } = CONFIG_AUTH_ERRORS[auth];
-    return res.status(status).json({ error: message });
-  }
+  if (auth === 'ok') return next();
+  if (auth === 'hidden') return next('route');
+  const { status, message } = CONFIG_AUTH_ERRORS[auth];
+  res.status(status).json({ error: message });
+}
 
-  const result = TrainingConfigManager.getInstance().updateConfig(req.body);
-  if (result.errors) {
-    return res.status(400).json({ error: result.errors[0].message });
-  }
+// One route that also claims OPTIONS: otherwise Express auto-answers OPTIONS with "Allow: GET,HEAD,PATCH".
+app.route("/training-config")
+  .options((_req: Request, _res: Response, next: NextFunction) => next('route'))
+  .get(requireAdmin, (req: Request, res: Response) => {
+    res.json(TrainingConfigManager.getInstance().getConfig());
+  })
+  .patch(requireAdmin, (req: Request, res: Response) => {
+    const result = TrainingConfigManager.getInstance().updateConfig(req.body);
+    if (result.errors) {
+      return res.status(400).json({ error: result.errors[0].message });
+    }
 
-  console.log(`[${new Date().toISOString()}] PATCH /training-config`, result.config);
-  res.json(result.config);
-});
+    console.log(`[${new Date().toISOString()}] PATCH /training-config`, result.config);
+    res.json(result.config);
+  });
 
 // GraphQL setup
 const typeDefs = specFiles.graphql;
-
-interface GraphQLContext {
-  authorization?: string;
-  clientKey: string;
-}
 
 const resolvers = {
   Query: {
@@ -352,23 +351,8 @@ const resolvers = {
       if (isNaN(idNum)) return null;
       return entityService.getById(idNum);
     },
-    trainingMode: () => TrainingConfigManager.getInstance().getConfig().enabled,
-    trainingConfig: () => TrainingConfigManager.getInstance().getConfig(),
   },
   Mutation: {
-    updateTrainingConfig: (_: any, { config }: { config: unknown }, { authorization, clientKey }: GraphQLContext) => {
-      const auth = authorizeAdmin(authorization, clientKey);
-      if (auth !== 'ok') {
-        const { code, message } = CONFIG_AUTH_ERRORS[auth];
-        throw new GraphQLError(message, { extensions: { code } });
-      }
-      const result = TrainingConfigManager.getInstance().updateConfig(config);
-      if (result.errors) {
-        throw new GraphQLError(result.errors[0].message, { extensions: { code: 'BAD_USER_INPUT' } });
-      }
-      console.log(`[${new Date().toISOString()}] GraphQL updateTrainingConfig`, result.config);
-      return result.config;
-    },
     createEntity: (_: any, { input }: { input: EntityInput }) => {
       const result = entityService.create(input);
       if (result.errors) {
@@ -405,7 +389,7 @@ const resolvers = {
 };
 
 async function startServer() {
-  const server = new ApolloServer<GraphQLContext>({
+  const server = new ApolloServer({
     typeDefs,
     resolvers,
     // Never leak stack traces (file paths) in responses, whatever NODE_ENV is
@@ -417,9 +401,7 @@ async function startServer() {
 
   await server.start();
 
-  app.use('/graphql', expressMiddleware(server, {
-    context: async ({ req }) => ({ authorization: req.headers.authorization, clientKey: requestClientKey(req) }),
-  }));
+  app.use('/graphql', expressMiddleware(server));
 
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

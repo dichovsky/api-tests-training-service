@@ -30,11 +30,25 @@ test('the block lifts once the window has passed', () => {
   assert.equal(limiter.isBlocked('10.0.0.1', 1_001), false);
 });
 
-test('requests while updates are disabled do not count as failures', () => {
+test('requests while no admin token is configured are hidden and do not count as failures', () => {
   const limiter = createFailedAttemptLimiter(1, 60_000);
-  assert.equal(authorizeAdmin('Bearer wrong', '10.0.0.1', undefined, limiter), 'disabled');
-  assert.equal(authorizeAdmin('Bearer wrong', '10.0.0.1', undefined, limiter), 'disabled');
+  assert.equal(authorizeAdmin('Bearer wrong', '10.0.0.1', undefined, limiter), 'hidden');
+  assert.equal(authorizeAdmin('Bearer wrong', '10.0.0.1', undefined, limiter), 'hidden');
   assert.equal(limiter.isBlocked('10.0.0.1'), false);
+});
+
+test('requests without an Authorization header are hidden and do not count as failures', () => {
+  const limiter = createFailedAttemptLimiter(1, 60_000);
+  assert.equal(authorizeAdmin(undefined, '10.0.0.1', TOKEN, limiter), 'hidden');
+  assert.equal(authorizeAdmin('', '10.0.0.1', TOKEN, limiter), 'hidden');
+  assert.equal(limiter.isBlocked('10.0.0.1'), false);
+});
+
+test('a blocked client without an Authorization header still gets hidden, not rate_limited', () => {
+  const limiter = createFailedAttemptLimiter(1, 60_000);
+  assert.equal(authorizeAdmin('Bearer wrong', '10.0.0.1', TOKEN, limiter), 'unauthorized');
+  assert.equal(authorizeAdmin(undefined, '10.0.0.1', TOKEN, limiter), 'hidden');
+  assert.equal(authorizeAdmin('Bearer wrong', '10.0.0.1', TOKEN, limiter), 'rate_limited');
 });
 
 test('tracked clients are capped: the oldest entry is evicted first', () => {

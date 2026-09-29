@@ -30,9 +30,9 @@ async function freePort() {
   await new Promise(ok => server.close(ok));
   return port;
 }
-async function request(path, { method = 'GET', body, admin = false } = {}) {
+async function request(path, { method = 'GET', body, admin = false, auth = admin ? `Bearer ${token}` : undefined } = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
-    method, headers: { 'Content-Type': 'application/json', ...(admin ? { Authorization: `Bearer ${token}` } : {}) },
+    method, headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: auth } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(10000),
   });
   return { status: response.status, body: await response.json() };
@@ -70,7 +70,7 @@ async function start(name, extra = {}, withToken = true) {
     if (runtimeStarted === undefined && log.includes('node dist/index.js')) runtimeStarted = Date.now();
     try {
       const rest = await request('/entities');
-      const graphql = await request('/graphql', { method: 'POST', body: { query: '{ trainingMode }' } });
+      const graphql = await request('/graphql', { method: 'POST', body: { query: '{ entities { id } }' } });
       if (rest.status === 200 && graphql.status === 200 && graphql.body.data) break;
     } catch { /* readiness polling, not assertion retries */ }
     if (runtimeStarted !== undefined && Date.now() - runtimeStarted > 60000) throw new Error(`${name}: runtime readiness timed out`);
@@ -99,11 +99,11 @@ try {
   await start('before-restart');
   assert.equal((await request('/entities', { method: 'POST', body: { name: 'restart-fixture' } })).status, 201);
   assert.equal((await request('/training-config', { method: 'PATCH', admin: true, body: { enabled: true, features: { skipTrimOnCreate: false } } })).status, 200);
-  for (let i = 0; i < 5; i++) assert.equal((await request('/training-config', { method: 'PATCH', body: {} })).status, 401);
+  for (let i = 0; i < 5; i++) assert.equal((await request('/training-config', { method: 'PATCH', body: {}, auth: 'Bearer synthetic-wrong-token' })).status, 401);
   assert.equal((await request('/training-config', { method: 'PATCH', admin: true, body: {} })).status, 429);
   await start('after-restart');
   assert.deepEqual((await request('/entities')).body, []);
-  assert.deepEqual((await request('/training-config')).body, { enabled: false, features: { skipTrimOnCreate: true, skipTrimOnUpdate: true } });
+  assert.deepEqual((await request('/training-config', { admin: true })).body, { enabled: false, features: { skipTrimOnCreate: true, skipTrimOnUpdate: true } });
   assert.equal((await request('/training-config', { method: 'PATCH', admin: true, body: {} })).status, 200);
   assert.equal((await request('/entities', { method: 'POST', body: { name: 'id-reset' } })).body.id, 1);
   metadata.results.push({ name: 'restart-resets-entities-ids-config-lockout', pass: true });

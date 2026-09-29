@@ -1,0 +1,148 @@
+# Mentor-only contract. Not served by the service; keep it out of api-rest.yaml.
+openapi: 3.1.0
+info:
+  title: Training Config API - REST (mentors only)
+  version: 2.0.0
+servers:
+  - url: /
+security:
+  - adminToken: []
+paths:
+  /training-config:
+    get:
+      summary: Get training config
+      description: |
+        Current training mode config. Without an Authorization header, or when the
+        server has no TRAINING_ADMIN_TOKEN, the route answers like an unknown path.
+      operationId: getTrainingConfig
+      responses:
+        '200':
+          description: Current training config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingConfig'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/Hidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+    patch:
+      summary: Update training config
+      description: |
+        Changes the training config at runtime (in memory only, reset on restart).
+        Only known keys with boolean values are accepted; anything else is rejected
+        and leaves the config unchanged.
+      operationId: updateTrainingConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainingConfigUpdate'
+            example:
+              enabled: true
+              features:
+                skipTrimOnCreate: false
+      responses:
+        '200':
+          description: Updated training config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingConfig'
+        '400':
+          description: Invalid update (unknown key or non-boolean value)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Unknown property 'evil'"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/Hidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+components:
+  securitySchemes:
+    adminToken:
+      type: http
+      scheme: bearer
+      description: Value of TRAINING_ADMIN_TOKEN
+  responses:
+    Unauthorized:
+      description: Wrong bearer token; counts toward the lockout
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Invalid admin token"
+    Hidden:
+      description: No Authorization header or no TRAINING_ADMIN_TOKEN on the server; Express default HTML 404, not counted
+    RateLimited:
+      description: Too many failed token attempts from this client (5 within 15 minutes); blocked until the window ends, even with the right token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Too many failed admin token attempts, try again later"
+  schemas:
+    TrainingConfig:
+      type: object
+      required:
+        - enabled
+        - features
+      properties:
+        enabled:
+          type: boolean
+          description: Whether training mode (intentional bugs) is on
+        features:
+          type: object
+          additionalProperties: false
+          properties:
+            skipTrimOnCreate:
+              type: boolean
+              description: Skip trimming the name on create (30% chance)
+            skipTrimOnUpdate:
+              type: boolean
+              description: Skip trimming the name on update (25% chance)
+          required:
+            - skipTrimOnCreate
+            - skipTrimOnUpdate
+      example:
+        enabled: true
+        features:
+          skipTrimOnCreate: true
+          skipTrimOnUpdate: true
+
+    TrainingConfigUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        features:
+          type: object
+          additionalProperties: false
+          properties:
+            skipTrimOnCreate:
+              type: boolean
+              description: Skip trimming the name on create (30% chance)
+            skipTrimOnUpdate:
+              type: boolean
+              description: Skip trimming the name on update (25% chance)
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string

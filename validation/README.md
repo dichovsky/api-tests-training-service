@@ -38,11 +38,18 @@ token into committed scripts or test reports.
 Default mode is `SUITE_MODE=full`: training disabled, both defect flags enabled,
 and a configured admin token. Additional modes:
 
-- `SUITE_MODE=no-token`: start the service without its admin token; writes to
-  training configuration must be disabled.
+- `SUITE_MODE=no-token`: start the service without its admin token; the
+  training configuration must be hidden (Express default 404) even with a
+  bearer token.
 - `SUITE_MODE=startup-training`: exercise the chosen startup settings. Use
   `EXPECT_TRAINING_ENABLED=true`, `EXPECT_SKIP_TRIM_CREATE=false`, and
   `EXPECT_SKIP_TRIM_UPDATE=false` for training enabled with defects disabled.
+
+Every mode also checks that mentees cannot discover the training
+configuration: no-token requests get the default 404 and never count toward the
+lockout, GraphQL has no training types or operations, and no served spec page
+or download mentions training mode. The mentor contract is
+`mentor/training-config.rest.yaml`.
 
 `SOURCE_ROOT` optionally selects the checkout containing the expected packaged
 specification files. The default is this checkout. Only the server's lifecycle

@@ -112,14 +112,22 @@ export async function runSuite(options = {}) {
     return body;
   }
   const restAll = async () => json(await request('GET', '/entities'));
-  const restConfig = async () => json(await request('GET', '/training-config'));
-  const graphConfig = async () => graphData(await gql('{ trainingMode trainingConfig { enabled features { skipTrimOnCreate skipTrimOnUpdate } } }'));
+  // Training config is mentor-only: REST with the admin token, absent from GraphQL and the served specs.
+  const restConfig = async () => json(await request('GET', '/training-config', undefined, { auth: bearer }));
   async function patchConfig(config) {
     return json(await request('PATCH', '/training-config', config, { auth: bearer }));
   }
-  async function graphPatch(config, auth = bearer) {
-    return gql('mutation($config: TrainingConfigInput!) { updateTrainingConfig(config:$config) { enabled features { skipTrimOnCreate skipTrimOnUpdate } } }', { config }, auth);
+  // Hidden means the same response as an unknown sibling path: status, content type, and body (path substituted).
+  async function assertHidden(method, auth) {
+    const body = method === 'PATCH' ? { enabled: true } : undefined;
+    const response = await request(method, '/training-config', body, { auth });
+    const unknown = await request(method, '/training-config-unknown', body, { auth });
+    assert.equal(response.status, 404);
+    assert.equal(unknown.status, 404);
+    assert.equal(response.headers['content-type'], unknown.headers['content-type']);
+    assert.equal(response.text, unknown.text.replace('/training-config-unknown', '/training-config'));
   }
+  const trainingLeak = /training[ _-]?(mode|config|features)|trainingMode|TRAINING_|intentional|skipTrim/i;
   async function createRest(input) {
     const entity = json(await request('POST', '/entities', input), 201);
     assert.equal(typeof entity.id, 'number');
@@ -159,9 +167,22 @@ export async function runSuite(options = {}) {
   await check('startup: GraphQL empty initial state', async () => {
     assert.deepEqual(graphData(await gql('{ entities { ' + fields + ' } }')).entities, []);
   });
-  await check('startup: REST environment configuration', async () => assert.deepEqual(await restConfig(), expectedConfig));
-  await check('startup: GraphQL environment configuration', async () => {
-    assert.deepEqual(await graphConfig(), { trainingMode: expectedConfig.enabled, trainingConfig: expectedConfig });
+  if (mode !== 'no-token') {
+    await check('startup: REST environment configuration', async () => assert.deepEqual(await restConfig(), expectedConfig));
+  }
+  await check('hidden: GraphQL schema has no training types or fields', async () => {
+    const { types } = graphData(await gql('{ __schema { types { name fields { name } inputFields { name } } } }')).__schema;
+    const names = types.flatMap(type => [type.name, ...(type.fields ?? []).map(f => f.name), ...(type.inputFields ?? []).map(f => f.name)]);
+    assert.deepEqual(names.filter(name => /training|skipTrim/i.test(name)), []);
+  });
+  await check('hidden: GraphQL rejects the removed training operations', async () => {
+    graphError(await gql('{ trainingMode }'), { status: 400, code: 'GRAPHQL_VALIDATION_FAILED' });
+    graphError(await gql('mutation { updateTrainingConfig(config:{enabled:true}) { enabled } }', {}, bearer), { status: 400, code: 'GRAPHQL_VALIDATION_FAILED' });
+  });
+  await check('hidden: repeated no-token requests look like an unknown path and never lock out', async () => {
+    for (let i = 0; i < 6; i++) await assertHidden(i % 2 ? 'PATCH' : 'GET', undefined);
+    await assertHidden('OPTIONS', undefined);
+    if (mode !== 'no-token') assert.deepEqual(await restConfig(), expectedConfig);
   });
   await check('startup: introspection available', async () => {
     const schema = graphData(await gql('{ __schema { queryType { name } mutationType { name } } }')).__schema;
@@ -209,6 +230,14 @@ export async function runSuite(options = {}) {
       }
     });
   }
+  for (const path of ['/', '/api-specs', '/api-specs/requirements', '/api-specs/REQUIREMENTS.md', '/api-specs/rest.yaml',
+    '/api-specs/graphql', '/api-specs/graphql.graphql', '/api-specs/graphql.md']) {
+    await check('hidden: served spec ' + path + ' has no training mentions', async () => {
+      const response = await request('GET', path);
+      assert.equal(response.status, 200);
+      assert.doesNotMatch(response.text, trainingLeak);
+    });
+  }
   if (sourceRoot) {
     const escapeHtml = text => text.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
     for (const [path, file] of [['/api-specs/graphql.md', 'api-graphql.md'], ['/api-specs/requirements', 'REQUIREMENTS.md'], ['/api-specs/graphql', 'api-graphql.graphql']]) {
@@ -225,18 +254,8 @@ export async function runSuite(options = {}) {
   }
 
   if (mode === 'no-token') {
-    await check('auth disabled: REST refuses writes', async () => configUnchanged(async () => {
-      const response = await request('PATCH', '/training-config', { enabled: true }, { auth: 'Bearer synthetic-disabled-token' });
-      assert.match(json(response, 403).error, /disabled/i);
-    }));
-    await check('auth disabled: GraphQL refuses writes', async () => configUnchanged(async () => {
-      graphError(await graphPatch({ enabled: true }, 'Bearer synthetic-disabled-token'), { code: 'FORBIDDEN', message: /disabled/i });
-    }));
-    await check('auth disabled: repeated attempts stay disabled', async () => {
-      for (let i = 0; i < 6; i++) {
-        assert.equal((await request('PATCH', '/training-config', { enabled: true })).status, 403);
-      }
-      assert.deepEqual(await restConfig(), expectedConfig);
+    await check('no server token: training config hidden even with a bearer token', async () => {
+      for (let i = 0; i < 6; i++) await assertHidden(i % 2 ? 'PATCH' : 'GET', 'Bearer synthetic-disabled-token');
     });
   }
 
@@ -376,13 +395,9 @@ export async function runSuite(options = {}) {
       assert.deepEqual(await patchConfig({ features: { skipTrimOnCreate: false } }), {
         enabled: false, features: { skipTrimOnCreate: false, skipTrimOnUpdate: true },
       });
-      assert.deepEqual((await graphConfig()).trainingConfig, await restConfig());
-    });
-    await check('GraphQL: valid token partial configuration update', async () => {
-      const config = graphData(await graphPatch({ enabled: true, features: { skipTrimOnUpdate: false } })).updateTrainingConfig;
+      const config = await patchConfig({ enabled: true, features: { skipTrimOnUpdate: false } });
       assert.deepEqual(config, { enabled: true, features: { skipTrimOnCreate: false, skipTrimOnUpdate: false } });
       assert.deepEqual(await restConfig(), config);
-      assert.equal((await graphConfig()).trainingMode, true);
     });
     const invalidConfigs = [
       ['wrong enabled type', { enabled: 'true' }], ['null enabled', { enabled: null }],
@@ -397,20 +412,10 @@ export async function runSuite(options = {}) {
         assert.equal((await request('PATCH', '/training-config', value, { auth: bearer })).status, 400);
       }));
     }
-    for (const [name, value, status] of [
-      ['null enabled', { enabled: null }, 200], ['null features', { features: null }, 200],
-      ['null flag', { features: { skipTrimOnCreate: null } }, 200],
-      ['unknown flag', { enabled: false, features: { unknownFlag: true } }, 400],
-      ['wrong enabled type', { enabled: 'true' }, 400],
-    ]) {
-      await check('GraphQL config: reject ' + name + ' unchanged', async () => configUnchanged(async () => {
-        graphError(await graphPatch(value), { status, ...(status === 200 ? { code: 'BAD_USER_INPUT' } : {}) });
-      }));
-    }
     await check('config: empty partial updates are no-ops', async () => {
       const before = await restConfig();
       assert.deepEqual(await patchConfig({}), before);
-      assert.deepEqual(graphData(await graphPatch({ features: {} })).updateTrainingConfig, before);
+      assert.deepEqual(await patchConfig({ features: {} }), before);
     });
   }
 
@@ -454,35 +459,30 @@ export async function runSuite(options = {}) {
   await check('cleanup: synthetic entities removed', cleanup);
 
   if (mode === 'full') {
-    // Five failures, deliberately alternating interfaces, must share one counter.
+    // Five counted failures across methods and schemes; hidden (no-header) requests in between never count.
     const failedAuth = [
-      ['REST missing token', 'rest', undefined], ['GraphQL wrong token', 'graph', 'Bearer synthetic-wrong-token'],
-      ['REST wrong scheme', 'rest', 'Basic synthetic'], ['GraphQL missing token', 'graph', undefined],
-      ['REST wrong token fifth attempt', 'rest', 'Bearer synthetic-wrong-token'],
+      ['PATCH wrong token', 'PATCH', 'Bearer synthetic-wrong-token'], ['GET wrong token', 'GET', 'Bearer synthetic-wrong-token'],
+      ['PATCH wrong scheme', 'PATCH', 'Basic synthetic'], ['GET empty bearer', 'GET', 'Bearer '],
+      ['PATCH wrong token fifth attempt', 'PATCH', 'Bearer synthetic-wrong-token'],
     ];
-    for (const [label, protocol, auth] of failedAuth) {
-      await check('auth: ' + label, async () => configUnchanged(async () => {
-        if (protocol === 'rest') {
-          assert.match(json(await request('PATCH', '/training-config', { enabled: true }, { auth }), 401).error, /token/i);
-        } else {
-          // Avoid graphPatch's default argument: omitted auth must really be absent.
-          graphError(await gql('mutation { updateTrainingConfig(config:{enabled:true}) { enabled } }', {}, auth), { code: 'UNAUTHENTICATED' });
-        }
-      }));
+    for (const [label, method, auth] of failedAuth) {
+      await check('auth: ' + label, async () => {
+        const response = await request(method, '/training-config', method === 'PATCH' ? { enabled: true } : undefined, { auth });
+        assert.match(json(response, 401).error, /token/i);
+        await assertHidden(method, undefined);
+      });
     }
-    await check('auth: correct REST token blocked after five shared failures', async () => configUnchanged(async () => {
+    await check('auth: correct token blocked after five failures', async () => {
       assert.match(json(await request('PATCH', '/training-config', { enabled: true }, { auth: bearer }), 429).error, /Too many/i);
-    }));
-    await check('auth: correct GraphQL token shares lockout', async () => configUnchanged(async () => {
-      graphError(await graphPatch({ enabled: true }), { code: 'RATE_LIMITED' });
-    }));
-    await check('auth: public REST reads remain available during lockout', async () => {
-      assert.deepEqual(await restAll(), []);
-      assert.deepEqual(await restConfig(), baselineConfig);
+      assert.match(json(await request('GET', '/training-config', undefined, { auth: bearer }), 429).error, /Too many/i);
     });
-    await check('auth: public GraphQL reads remain available during lockout', async () => {
+    await check('auth: no-token requests stay hidden during lockout', async () => {
+      await assertHidden('GET', undefined);
+      await assertHidden('PATCH', undefined);
+    });
+    await check('auth: public entity reads remain available during lockout', async () => {
+      assert.deepEqual(await restAll(), []);
       assert.deepEqual(graphData(await gql('{ entities { id } }')).entities, []);
-      assert.deepEqual(await graphConfig(), { trainingMode: false, trainingConfig: baselineConfig });
     });
   }
 
